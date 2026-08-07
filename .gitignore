@@ -3,6 +3,8 @@ dist
 .svelte-kit
 .vercel
 coverage
+playwright-report
+test-results
 *.tsbuildinfo
 *.tgz
 .DS_Store

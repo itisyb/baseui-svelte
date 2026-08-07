@@ -1,5 +1,5 @@
 <script lang="ts">
-  import DocsShell from './DocsShell.svelte';
+  import DocsShell from '../../DocsShell.svelte';
 
   let { data } = $props();
 </script>
