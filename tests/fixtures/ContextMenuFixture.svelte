@@ -1,0 +1,2 @@
+<script lang="ts">import * as ContextMenu from '../../src/lib/context-menu/index.js'; let action = $state('none');</script>
+<ContextMenu.Root><ContextMenu.Trigger tabindex={0}>Canvas</ContextMenu.Trigger><ContextMenu.Portal><ContextMenu.Positioner><ContextMenu.Popup><ContextMenu.Item onSelect={() => action = 'copy'}>Copy</ContextMenu.Item></ContextMenu.Popup></ContextMenu.Positioner></ContextMenu.Portal></ContextMenu.Root><output>{action}</output>

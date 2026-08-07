@@ -1,0 +1,2 @@
+<script lang="ts">import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> { children?: Snippet; ref?: HTMLSpanElement | null; } let { children, ref = $bindable(null), ...rest }: Props = $props();</script>
+<span bind:this={ref} {...rest} aria-hidden="true">{@render children?.()}</span>

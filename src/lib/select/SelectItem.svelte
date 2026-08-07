@@ -1,0 +1,7 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; import { composeEventHandlers } from '../shared/events.js'; import { getSelectContext, SelectItemState, setSelectItemContext } from './select-context.svelte.js';
+  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; value: string; label?: string; disabled?: boolean; ref?: HTMLDivElement | null; }
+  let { children, value, label = value, disabled = false, ref = $bindable(null), onclick, onpointermove, ...rest }: Props = $props(); const select = getSelectContext(); const item = setSelectItemContext(new SelectItemState()); let selected = $derived(select.value === value); let highlighted = $derived(select.highlighted === value);
+  $effect(() => { item.value = value; item.label = label; item.disabled = disabled; item.element = ref; if (ref) return select.register(item); });
+</script>
+<div bind:this={ref} {...rest} id={`${select.listId}-${value.replace(/[^\w-]/g, '_')}`} role="option" aria-selected={selected} aria-disabled={disabled || undefined} tabindex="-1" data-selected={selected ? '' : undefined} data-highlighted={highlighted ? '' : undefined} data-disabled={disabled ? '' : undefined} onclick={composeEventHandlers(onclick, (event) => { if (!disabled) select.select(value, event); })} onpointermove={composeEventHandlers(onpointermove, () => { if (!disabled) select.highlighted = value; })}>{@render children?.()}</div>

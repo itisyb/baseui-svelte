@@ -1,0 +1,2 @@
+<script lang="ts">import * as NavigationMenu from '../../src/lib/navigation-menu/index.js'; let value = $state<string | null>(null);</script>
+<NavigationMenu.Root bind:value><NavigationMenu.List><NavigationMenu.Item value="products"><NavigationMenu.Trigger>Products</NavigationMenu.Trigger><NavigationMenu.Content><NavigationMenu.Link href="/one">Product one</NavigationMenu.Link></NavigationMenu.Content></NavigationMenu.Item></NavigationMenu.List></NavigationMenu.Root><output>{value ?? 'none'}</output>

@@ -1,0 +1,2 @@
+<script lang="ts">import * as Drawer from '../../src/lib/drawer/index.js'; let open = $state(false);</script>
+<Drawer.Root bind:open><Drawer.Trigger>Open drawer</Drawer.Trigger><Drawer.Portal><Drawer.Backdrop /><Drawer.Popup><Drawer.Title>Filters</Drawer.Title><Drawer.Content>Filter controls</Drawer.Content><Drawer.Close>Close drawer</Drawer.Close></Drawer.Popup></Drawer.Portal></Drawer.Root><output>{open}</output>

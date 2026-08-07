@@ -1,0 +1,7 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte'; import type { HTMLButtonAttributes } from 'svelte/elements'; import { composeEventHandlers } from '../shared/events.js'; import { getPopoverContext } from '../popover/popover-context.svelte.js'; import { getSelectContext } from './select-context.svelte.js';
+  interface Props extends Omit<HTMLButtonAttributes, 'children'> { children?: Snippet; ref?: HTMLButtonElement | null; }
+  let { children, ref = $bindable(null), onclick, onkeydown, ...rest }: Props = $props(); const select = getSelectContext(); const popover = getPopoverContext(); $effect.pre(() => { popover.trigger = ref; });
+  function keydown(event: KeyboardEvent) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) { event.preventDefault(); popover.setOpen(true, 'trigger-press', event); queueMicrotask(() => { const selected = select.selectedItem ?? select.items.find((item) => !item.disabled); selected?.element?.focus(); select.highlighted = selected?.value ?? null; }); } }
+</script>
+<button bind:this={ref} {...rest} id={select.triggerId} type="button" role="combobox" aria-haspopup="listbox" aria-expanded={popover.open} aria-controls={select.listId} aria-labelledby={select.labelId} disabled={select.disabled} data-popup-open={popover.open ? '' : undefined} onclick={composeEventHandlers(onclick, (event) => popover.setOpen(!popover.open, 'trigger-press', event))} onkeydown={composeEventHandlers(onkeydown, keydown)}>{@render children?.()}</button>

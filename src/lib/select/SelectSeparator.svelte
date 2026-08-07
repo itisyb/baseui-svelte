@@ -1,0 +1,2 @@
+<script lang="ts">import type { HTMLAttributes } from 'svelte/elements'; interface Props extends HTMLAttributes<HTMLDivElement> { ref?: HTMLDivElement | null; } let { ref = $bindable(null), ...rest }: Props = $props();</script>
+<div bind:this={ref} {...rest} role="separator"></div>

@@ -1,0 +1,9 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; import type { OnValueChange } from '../shared/types.js'; import { OTPFieldState, type OTPChangeReason, type OTPValidationType, setOTPFieldContext } from './otp-field-context.svelte.js';
+  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; value?: string; length: number; onValueChange?: OnValueChange<string, OTPChangeReason>; onValueComplete?: (value: string) => void; validationType?: OTPValidationType; mask?: boolean; disabled?: boolean; readOnly?: boolean; required?: boolean; name?: string; autoSubmit?: boolean; ref?: HTMLDivElement | null; }
+  let { children, value = $bindable(''), length, onValueChange, onValueComplete, validationType = 'numeric', mask = false, disabled = false, readOnly = false, required = false, name, autoSubmit = false, ref = $bindable(null), ...rest }: Props = $props(); const uid = $props.id(); const otp = setOTPFieldContext(new OTPFieldState()); otp.baseId = uid;
+  otp.setValue = (next, reason, event) => { const normalized = otp.normalize(next); if (normalized === value) return; value = normalized; onValueChange?.(normalized, { reason, event }); if (normalized.length === length) { onValueComplete?.(normalized); if (autoSubmit) ref?.closest('form')?.requestSubmit(); } };
+  $effect.pre(() => { otp.value = otp.normalize(value); otp.length = Math.max(1, Math.floor(length)); otp.validationType = validationType; otp.mask = mask; otp.disabled = disabled; otp.readOnly = readOnly; otp.required = required; otp.name = name; });
+</script>
+<div bind:this={ref} {...rest} role="group" data-complete={otp.value.length === otp.length ? '' : undefined} data-disabled={disabled ? '' : undefined}>{@render children?.()}</div>
+{#if name}<input type="hidden" {name} value={otp.value} />{/if}
