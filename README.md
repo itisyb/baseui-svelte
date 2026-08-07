@@ -2,12 +2,14 @@
 
 An independent Svelte 5 port of [MUI Base UI](https://github.com/mui/base-ui): unstyled, accessible primitives that give applications complete control over markup-adjacent styling.
 
+**[Live component showcase](https://baseui-svelte.vercel.app)**
+
 The port covers all 40 upstream component families and every named component part in the `@base-ui/react` 1.7.0 package. React-specific concepts are translated to Svelte-native bindings, snippets, context, and attachments; see [port status](./docs/port-status.md) for the parity definition.
 
 ## Install
 
 ```sh
-npm install @base-ui/svelte @floating-ui/dom
+npm install github:itisyb/baseui-svelte @floating-ui/dom
 ```
 
 The package requires Svelte 5.40 or newer. It ships no CSS.

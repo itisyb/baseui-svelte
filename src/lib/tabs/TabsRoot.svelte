@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import type { HTMLAttributes } from 'svelte/elements';
   import type { Direction, OnValueChange, Orientation } from '../shared/types.js';
   import { setTabsContext, TabsState } from './tabs-context.svelte.js';
@@ -29,6 +29,13 @@
   const uid = $props.id();
   const state = setTabsContext(new TabsState());
   state.baseId = uid;
+  untrack(() => {
+    state.value = value;
+    state.orientation = orientation;
+    state.direction = direction;
+    state.loop = loop;
+    state.activateOnFocus = activateOnFocus;
+  });
   state.select = (next, event) => {
     if (value === next) return;
     value = next;
