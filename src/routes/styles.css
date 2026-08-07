@@ -54,6 +54,8 @@
   --color-selection: hsl(0 0% 92%);
   --font-size-14: 0.875rem;
   --font-size-15: 0.9375rem;
+  --font-size-13: 0.8125rem;
+  --font-size-16: 1rem;
   --font-size-18: 1.125rem;
   --font-size-21: 1.3125rem;
   --font-size-34: 2.125rem;
@@ -65,6 +67,18 @@
   --radius-4: 0.25rem;
   --radius-6: 0.375rem;
   --radius-8: 0.5rem;
+  --radius-16: 1rem;
+  --radius-36: 2.25rem;
+  --radius-pill: 9999px;
+  --space-4: 0.25rem;
+  --space-8: 0.5rem;
+  --space-12: 0.75rem;
+  --space-16: 1rem;
+  --space-24: 1.5rem;
+  --space-28: 1.75rem;
+  --space-32: 2rem;
+  --space-36: 2.25rem;
+  --space-40: 2.5rem;
   --header-height: 3rem;
   --breakpoint-max-layout-width: 89rem;
 }
@@ -122,7 +136,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'ss02' 1, 'zero' 1;
   overflow-y: scroll;
-  text-rendering: optimizeLegibility;
+}
+
+[data-base-ui-portal] {
+  font-feature-settings: normal;
 }
 
 button,
@@ -674,230 +691,490 @@ svg {
   border: 0;
 }
 
-.NavigationDialog {
-  width: min(42rem, calc(100% - 3rem));
-  max-width: none;
-  max-height: min(42rem, calc(100dvh - 3rem));
-  margin-block: 4rem auto;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  color: var(--gray-t2);
-  background: var(--color-popup);
-  box-shadow: 0 24px 80px rgb(0 0 0 / 24%);
+.SearchBackdrop {
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  background: black;
+  opacity: 0.2;
 }
 
-.NavigationDialog[open] {
-  animation: navigation-dialog-in 160ms ease-out;
+@media (prefers-color-scheme: dark) {
+  .SearchBackdrop {
+    opacity: 0.7;
+  }
 }
 
-.NavigationDialog::backdrop {
-  background: rgb(0 0 0 / 36%);
-  backdrop-filter: blur(2px);
-  animation: navigation-backdrop-in 160ms ease-out;
-}
-
-.NavigationDialogPopup {
+.SearchViewport {
+  position: fixed;
+  inset: 0;
   display: flex;
-  max-height: inherit;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+  padding-top: 4.5rem;
 }
 
-.NavigationDialogHeader {
+.SearchPopup {
   position: relative;
-  flex: none;
-  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(29.5rem, calc(100vh - 6rem));
+  width: min(34rem, calc(100vw - 2rem));
+  border-radius: 1rem;
+  color: var(--gray-t2);
+  background: var(--gray-s1);
+  outline: 1px solid var(--color-border);
+  box-shadow:
+    0 0.5px 1px hsl(0 0% 0% / 12%),
+    0 1px 3px -1px hsl(0 0% 0% / 4%),
+    0 2px 4px -1px hsl(0 0% 0% / 4%),
+    0 4px 8px -2px hsl(0 0% 0% / 4%),
+    0 12px 14px -4px hsl(0 0% 0% / 4%),
+    0 24px 64px -8px hsl(0 0% 0% / 4%),
+    0 40px 48px -32px hsl(0 0% 0% / 4%);
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease;
 }
 
-.NavigationDialogSearchIcon {
+@media (prefers-color-scheme: dark) {
+  .SearchPopup {
+    background: oklch(20% 0.5% 264deg);
+    outline-color: hsl(0 0% 100% / 25%);
+  }
+}
+
+.SearchHead {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--gray-c1);
+  border-radius: 1rem 1rem 0 0;
+}
+
+.SearchInputRoot {
+  position: relative;
+  display: block;
+  height: 2.875rem;
+  border-radius: var(--radius-6);
+}
+
+.SearchInputIcon {
   position: absolute;
   top: 50%;
-  left: 1rem;
+  left: var(--space-16);
   width: 1rem;
   height: 1rem;
-  color: var(--gray-t1);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.25;
-  stroke-linecap: round;
+  color: var(--gray-p1);
   pointer-events: none;
   transform: translateY(-50%);
 }
 
-.NavigationDialogInput {
+.SearchInput {
   width: 100%;
-  height: 3.5rem;
-  padding: 0 3.75rem 0 3rem;
+  height: 100%;
+  padding-inline: var(--space-40) var(--space-16);
   border: 0;
   outline: 0;
   color: var(--gray-t2);
   background: transparent;
-  font-size: 1rem;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-400);
 }
 
-.NavigationDialogInput::placeholder {
-  color: var(--gray-t1);
+.SearchInput::placeholder {
+  color: var(--gray-p1);
 }
 
-.NavigationDialogInput::-webkit-search-cancel-button {
+.SearchBody {
+  min-height: 4.5rem;
+  display: flex;
+  flex: 1;
+}
+
+.SearchScrollAreaRoot {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.SearchScrollAreaViewport {
+  min-height: 0;
+  flex: 1;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scroll-padding: 2.25rem 0 0.5rem;
+  outline: 0;
+  scrollbar-width: none;
+}
+
+.SearchScrollAreaViewport::-webkit-scrollbar {
   display: none;
 }
 
-.NavigationDialogClose {
+.SearchScrollbar {
   position: absolute;
-  top: 50%;
-  right: 0.5rem;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-8);
-  color: var(--gray-t1);
-  background: transparent;
-  cursor: pointer;
-  transform: translateY(-50%);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.5rem;
+  display: flex;
+  padding-block: var(--space-8);
+  margin-right: -0.25rem;
 }
 
-.NavigationDialogClose:hover {
-  color: var(--gray-t2);
-  background: var(--gray-c1);
+.SearchScrollbarThumb {
+  width: 100%;
+  height: 21%;
+  display: flex;
+  justify-content: center;
 }
 
-.NavigationDialogClose:focus-visible,
-.NavigationDialogInput:focus-visible {
-  outline: 2px solid var(--gray-t2);
-  outline-offset: -2px;
+.SearchScrollbarThumb::before {
+  content: '';
+  width: 0.25rem;
+  height: 100%;
+  display: block;
+  border-radius: var(--radius-4);
+  background: var(--gray-p2);
 }
 
-.NavigationDialogClose svg {
-  width: 1rem;
-  height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.25;
-  stroke-linecap: round;
+.SearchList {
+  padding: 0.5rem;
+  outline: 0;
 }
 
-.NavigationDialogBody {
-  min-height: 0;
-  padding: 0.75rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--gray-p2) transparent;
-}
-
-.NavigationDialogLabel {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  color: var(--gray-t1);
-  font-size: var(--font-size-14);
-}
-
-.NavigationDialogList {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.NavigationDialogList a {
-  min-height: 2.75rem;
+.SearchGroupLabel {
+  height: 2rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-inline: 0.75rem;
-  border-radius: var(--radius-6);
-  text-decoration: none;
+  margin: 0;
+  padding-left: var(--space-8);
+  color: var(--gray-t1);
+  font-size: var(--font-size-15);
+  font-weight: var(--font-weight-400);
+  line-height: 1;
+  user-select: none;
 }
 
-.NavigationDialogList a:hover {
+.SearchOptionItem {
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-inline: var(--space-24) var(--space-8);
+  border-radius: var(--radius-6);
+  outline: 0;
+  color: var(--gray-t2);
+  font-size: var(--font-size-15);
+  font-weight: var(--font-weight-400);
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+}
+
+.SearchOptionItem[data-highlighted] {
   background: var(--gray-c1);
 }
 
-.NavigationDialogList a:focus-visible {
-  outline: 2px solid var(--gray-t2);
-  outline-offset: -2px;
+.SearchBreadcrumbPart {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
-.NavigationDialogList a span {
-  color: var(--gray-t1);
+.SearchBreadcrumbPart.last {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.NavigationDialogEmpty {
-  margin: 0;
-  padding: 2.5rem 0.75rem;
+.SearchEmptyState {
+  padding: 1.5rem 0.75rem;
   color: var(--gray-t1);
   text-align: center;
+  font-size: var(--font-size-15);
 }
 
-@keyframes navigation-dialog-in {
-  from {
+.SearchFooter {
+  display: flex;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-top: 1px solid var(--gray-c1);
+  color: var(--gray-p1);
+  font-size: var(--font-size-13);
+  line-height: 1;
+}
+
+.SearchFooterHint {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.SearchFooterEnter {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gray-c3);
+  border-radius: var(--radius-4);
+  color: var(--gray-t1);
+  background: var(--gray-s2);
+  font-size: 0.625rem;
+}
+
+.SearchClose {
+  display: none;
+}
+
+.SearchClose:focus {
+  display: flex;
+}
+
+.MobileNavBackdrop,
+.MobileNavViewport,
+.MobileNavPopup {
+  display: none;
+}
+
+@media (max-width: 63.999rem) {
+  .SearchBackdrop,
+  .SearchViewport {
+    display: none;
+  }
+
+  .MobileNavBackdrop {
+    position: fixed;
+    inset: 0;
+    display: block;
+    min-height: 100dvh;
+    background: rgb(0 0 0 / 10%);
+    transition: opacity 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .MobileNavBackdrop[data-starting-style] {
     opacity: 0;
-    transform: translateY(-0.5rem) scale(0.98);
-  }
-}
-
-@keyframes navigation-backdrop-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@media (max-width: 47.999rem) {
-  .NavigationDialog {
-    width: calc(100% - 0.5rem);
-    height: calc(100dvh - 0.25rem);
-    max-height: calc(100dvh - 0.25rem);
-    margin: auto 0.25rem 0.25rem;
-    border-radius: 2.25rem 2.25rem 1rem 1rem;
   }
 
-  .NavigationDialogHeader {
-    margin: 0.75rem;
-    padding: 0;
-    border-bottom: 0;
+  @media (prefers-color-scheme: dark) {
+    .MobileNavBackdrop {
+      background: rgb(0 0 0 / 40%);
+    }
   }
 
-  .NavigationDialogSearchIcon {
-    left: 0.75rem;
+  .MobileNavViewport {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    touch-action: none;
   }
 
-  .NavigationDialogInput {
-    height: 2.5rem;
-    padding-inline: 2.25rem 2.75rem;
-    border-radius: 999px;
+  .MobileNavPopup {
+    --mobile-nav-bleed: 3rem;
+    --mobile-nav-item-height: var(--space-40);
+    --mobile-nav-item-padding-x: var(--space-28);
+    --drawer-swipe-movement-y: 0px;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: calc(100dvh - var(--header-height) + var(--mobile-nav-bleed));
+    max-height: calc(100dvh - var(--header-height) + var(--mobile-nav-bleed));
+    display: flex;
+    flex-direction: column;
+    margin-bottom: calc(-1 * var(--mobile-nav-bleed));
+    overflow: hidden;
+    border-radius: var(--radius-36) var(--radius-36) 0 0;
+    outline: 0;
+    color: var(--gray-t2);
+    background: var(--color-popup);
+    box-shadow: 0 0 0 1px var(--color-border);
+    touch-action: none;
+    transform: translateY(var(--drawer-swipe-movement-y));
+    filter: blur(0);
+    transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+  }
+
+  .MobileNavPopup[data-starting-style] {
+    transform: translateY(calc(100% - var(--mobile-nav-bleed) + 2px));
+  }
+
+  .MobileNavSearchHeader {
+    position: relative;
+    flex-shrink: 0;
+    padding: var(--space-16) var(--space-16) 0;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .MobileNavHandle {
+    position: absolute;
+    top: 0.3125rem;
+    left: 50%;
+    width: 3.5rem;
+    height: 0.3125rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
+    transform: translateX(-50%);
+  }
+
+  .MobileNavSearchInputRoot {
+    position: relative;
+  }
+
+  .MobileNavSearchIcon {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: var(--space-12);
+    width: var(--space-16);
+    height: var(--space-16);
+    color: var(--gray-t1);
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .MobileNavSearchInput {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: var(--space-40);
+    padding-inline: var(--space-36) var(--space-32);
+    border: 0;
+    border-radius: var(--radius-pill);
+    outline: 0;
+    color: var(--gray-t2);
     background: var(--gray-c1);
   }
 
-  .NavigationDialogClose {
-    right: 0;
+  .MobileNavSearchInput::placeholder {
+    color: var(--gray-t1);
   }
 
-  .NavigationDialogList {
-    grid-template-columns: 1fr;
+  .MobileNavContent,
+  .MobileNavScrollAreaRoot,
+  .MobileNavScrollAreaViewport {
+    min-width: 0;
+    min-height: 0;
   }
 
-  @keyframes navigation-dialog-in {
-    from {
-      transform: translateY(1.5rem);
-    }
+  .MobileNavContent,
+  .MobileNavScrollAreaRoot {
+    display: flex;
+  }
+
+  .MobileNavContent {
+    flex: 1 1 auto;
+    touch-action: auto;
+  }
+
+  .MobileNavScrollAreaRoot {
+    position: relative;
+    flex: 1;
+  }
+
+  .MobileNavScrollAreaViewport {
+    flex: 1;
+    padding-bottom: var(--mobile-nav-bleed);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    outline: 0;
+    scrollbar-width: thin;
+  }
+
+  .MobileNavScrollAreaContent {
+    min-width: 0;
+  }
+
+  .MobileNavPanel,
+  .MobileNavSearchResults {
+    padding-block: var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .MobileNavSection:not(:last-of-type) {
+    margin-bottom: var(--space-24);
+  }
+
+  .MobileNavHeading {
+    display: flex;
+    align-items: center;
+    margin-inline: var(--mobile-nav-item-padding-x);
+    margin-bottom: var(--space-8);
+    color: var(--gray-t1);
+    font-size: var(--font-size-14);
+    line-height: 1;
+  }
+
+  .MobileNavList,
+  .MobileNavSearchList {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    outline: 0;
+  }
+
+  .MobileNavLink,
+  .MobileNavSearchOption {
+    height: var(--mobile-nav-item-height);
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding-inline: var(--mobile-nav-item-padding-x);
+    color: var(--gray-t2);
+    outline: 0;
+  }
+
+  .MobileNavResourceRow {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .MobileNavVersion {
+    color: var(--gray-t1);
+    font-size: var(--font-size-15);
+    line-height: 1.375rem;
+  }
+
+  .MobileNavSearchOption {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .MobileNavSearchOption[data-highlighted] {
+    background: var(--gray-c1);
+  }
+
+  .MobileNavSearchBreadcrumbText {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .MobileNavSearchBreadcrumbSeparator {
+    display: inline-flex;
+    margin-inline: var(--space-4);
+    color: var(--gray-t1);
+  }
+
+  .MobileNavEmptyState {
+    padding: var(--space-24) var(--space-12);
+    color: var(--gray-t1);
+    text-align: center;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-  }
-
-  .NavigationDialog[open],
-  .NavigationDialog::backdrop {
-    animation: none;
   }
 }

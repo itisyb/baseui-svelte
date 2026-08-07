@@ -16,6 +16,6 @@
   }
 </script>
 
-<div data-base-ui-portal="" style="display: contents" {@attach portal}>
+<div data-base-ui-portal="" {@attach portal}>
   {@render children?.()}
 </div>

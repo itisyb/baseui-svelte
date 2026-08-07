@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import DocsNavigation from './DocsNavigation.svelte';
 
   interface Data {
     components: readonly string[];
@@ -12,6 +13,11 @@
   const handbook = ['Styling', 'Animation', 'Composition', 'Customization', 'Forms', 'TypeScript', 'llms.txt'];
   const utils = ['CSP Provider', 'Direction Provider', 'mergeProps', 'useRender'];
   let shortcutPrefix = $state('⌘');
+  let navigationOpen = $state(false);
+  let navigationMode = $state<'desktop' | 'mobile'>('desktop');
+  let navigationTrigger = $state<HTMLButtonElement | null>(null);
+  let desktopTrigger: HTMLButtonElement;
+  let mobileTrigger: HTMLButtonElement;
 
   function slug(value: string) {
     if (value === 'About') return 'about';
@@ -25,6 +31,24 @@
     shortcutPrefix = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌘' : 'Ctrl+';
   });
 
+  function openNavigation(mode: 'desktop' | 'mobile', trigger: HTMLButtonElement) {
+    navigationMode = mode;
+    navigationTrigger = trigger;
+    navigationOpen = true;
+  }
+
+  function keyboardShortcuts() {
+    function keydown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      const desktop = window.matchMedia('(min-width: 64rem)').matches;
+      openNavigation(desktop ? 'desktop' : 'mobile', desktop ? desktopTrigger : mobileTrigger);
+    }
+
+    window.addEventListener('keydown', keydown, { capture: true });
+    return () => window.removeEventListener('keydown', keydown, { capture: true });
+  }
+
 </script>
 
 <svelte:head>
@@ -33,7 +57,7 @@
 
 <a class="SkipNav" href="#main-content">Skip to contents</a>
 
-<div class="RootLayout">
+<div class="RootLayout" {@attach keyboardShortcuts}>
   <div class="RootLayoutContainer">
     <div class="RootLayoutContent">
       <div class="ContentLayoutRoot">
@@ -46,10 +70,10 @@
               </svg>
             </a>
             <div class="HeaderSearch">
-              <button class="SearchTrigger SearchTriggerDesktop" type="button">
+              <button bind:this={desktopTrigger} class="SearchTrigger SearchTriggerDesktop" type="button" aria-haspopup="dialog" aria-expanded={navigationOpen && navigationMode === 'desktop'} onclick={() => openNavigation('desktop', desktopTrigger)}>
                 Search <span class="SearchTriggerShortcut">({shortcutPrefix}k)</span>
               </button>
-              <button class="SearchTrigger SearchTriggerMobile" type="button">
+              <button bind:this={mobileTrigger} class="SearchTrigger SearchTriggerMobile" type="button" aria-haspopup="dialog" aria-expanded={navigationOpen && navigationMode === 'mobile'} onclick={() => openNavigation('mobile', mobileTrigger)}>
                 <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m11 11 3.5 3.5" /><circle cx="7" cy="7" r="5.5" /></svg>
                 Navigation
               </button>
@@ -135,3 +159,5 @@
     </div>
   </div>
 </div>
+
+<DocsNavigation components={data.components} bind:open={navigationOpen} mode={navigationMode} finalFocus={navigationTrigger} />
