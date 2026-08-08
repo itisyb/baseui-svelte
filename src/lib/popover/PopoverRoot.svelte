@@ -3,7 +3,7 @@
   import type { OnValueChange } from '../shared/types.js';
   import { PopoverState, type PopoverOpenReason, setPopoverContext } from './popover-context.svelte.js';
   import type { PopoverHandle } from './popover-handle.svelte.js';
-  interface Props { children?: Snippet; open?: boolean; onOpenChange?: OnValueChange<boolean, PopoverOpenReason>; handle?: PopoverHandle; }
+  export interface Props { children?: Snippet; open?: boolean; onOpenChange?: OnValueChange<boolean, PopoverOpenReason>; handle?: PopoverHandle; }
   let { children, open = $bindable(false), onOpenChange, handle }: Props = $props();
   const uid = $props.id();
   const popover = setPopoverContext(new PopoverState());

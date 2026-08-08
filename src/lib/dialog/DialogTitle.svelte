@@ -4,7 +4,7 @@
   import { onDestroy } from 'svelte';
   import { getDialogContext } from './dialog-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLHeadingElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLHeadingElement>, 'children'> {
     children?: Snippet;
     ref?: HTMLHeadingElement | null;
   }

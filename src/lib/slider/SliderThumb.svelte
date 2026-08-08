@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import { composeEventHandlers } from '../shared/events.js';
   import { getSliderContext } from './slider-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     index?: number;
     getAriaValueText?: (value: number, index: number) => string;

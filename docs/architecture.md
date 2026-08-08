@@ -2,7 +2,7 @@
 
 ## Public API
 
-Each component family is a module of named parts. The root barrel exposes namespaces (`Accordion.Root`), while package subpaths expose the same parts (`@base-ui/svelte/accordion`). This keeps Base UI's recognizable composition without transporting React hooks or render-prop mechanics into Svelte.
+Each component family is a module of named parts. The root barrel exposes namespaces (`Accordion.Root`), while package subpaths expose the same parts (`@itisyb/baseui-svelte/accordion`). This keeps Base UI's recognizable composition without transporting React hooks or render-prop mechanics into Svelte.
 
 State props are bindable. Change callbacks are separate because they carry useful metadata:
 

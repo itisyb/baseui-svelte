@@ -12,6 +12,8 @@
     closeOnEscape?: boolean;
     ref?: HTMLDivElement | null;
   }
+
+  export type Props = DialogPopupProps;
 </script>
 
 <script lang="ts">

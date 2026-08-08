@@ -4,7 +4,7 @@
   import { onDestroy } from 'svelte';
   import { getFieldContext } from './field-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLParagraphElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLParagraphElement>, 'children'> {
     children?: Snippet;
     forceShow?: boolean;
     ref?: HTMLParagraphElement | null;

@@ -4,7 +4,7 @@
   import type { OnValueChange } from '../shared/types.js';
   import { NumberFieldState, type NumberFieldChangeReason, setNumberFieldContext } from './number-field-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     value?: number | null;
     onValueChange?: OnValueChange<number | null, NumberFieldChangeReason>;

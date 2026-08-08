@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
   import type { HTMLAttributes } from 'svelte/elements';
   import { getSliderContext } from './slider-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; ref?: HTMLDivElement | null; }
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; ref?: HTMLDivElement | null; }
   let { children, ref = $bindable(null), onpointerdown, ...rest }: Props = $props();
   const slider = getSliderContext();
   $effect.pre(() => { slider.control = ref; });

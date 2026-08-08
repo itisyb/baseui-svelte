@@ -1,7 +1,15 @@
 export { default as Root } from './FieldRoot.svelte';
+export type { Props as RootProps } from './FieldRoot.svelte';
 export { default as Label } from './FieldLabel.svelte';
+export type { Props as LabelProps } from './FieldLabel.svelte';
 export { default as Control } from './FieldControl.svelte';
+export type { Props as ControlProps } from './FieldControl.svelte';
 export { default as Description } from './FieldDescription.svelte';
+export type { Props as DescriptionProps } from './FieldDescription.svelte';
 export { default as Error } from './FieldError.svelte';
+export type { Props as ErrorProps } from './FieldError.svelte';
 export { default as Validity } from './FieldValidity.svelte';
+export type { Props as ValidityProps } from './FieldValidity.svelte';
 export { default as Item } from './FieldItem.svelte';
+export type { Props as ItemProps } from './FieldItem.svelte';
+export type { FieldState } from './field-context.svelte.js';

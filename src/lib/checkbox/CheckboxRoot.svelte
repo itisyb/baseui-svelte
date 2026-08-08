@@ -7,7 +7,7 @@
   import { getCheckboxGroupContext } from '../checkbox-group/checkbox-group-context.svelte.js';
 
   type CheckboxReason = 'trigger-press';
-  interface Props extends Omit<HTMLButtonAttributes, 'children' | 'value'> {
+  export interface Props extends Omit<HTMLButtonAttributes, 'children' | 'value'> {
     children?: Snippet;
     checked?: CheckedState;
     onCheckedChange?: OnValueChange<CheckedState, CheckboxReason>;

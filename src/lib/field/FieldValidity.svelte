@@ -7,7 +7,7 @@
     validity: ValidityState | null;
     validationMessage: string;
   }
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet<[ValidityData]>;
     ref?: HTMLDivElement | null;
   }

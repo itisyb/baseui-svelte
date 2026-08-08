@@ -1,5 +1,11 @@
 export { default as Root } from './ProgressRoot.svelte';
+export type { Props as RootProps } from './ProgressRoot.svelte';
 export { default as Track } from './ProgressTrack.svelte';
+export type { Props as TrackProps } from './ProgressTrack.svelte';
 export { default as Indicator } from './ProgressIndicator.svelte';
+export type { Props as IndicatorProps } from './ProgressIndicator.svelte';
 export { default as Label } from './ProgressLabel.svelte';
+export type { Props as LabelProps } from './ProgressLabel.svelte';
 export { default as Value } from './ProgressValue.svelte';
+export type { Props as ValueProps } from './ProgressValue.svelte';
+export type { ProgressState } from './progress-context.svelte.js';

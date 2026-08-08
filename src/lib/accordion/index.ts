@@ -1,6 +1,12 @@
 export { default as Root } from './AccordionRoot.svelte';
+export type { Props as RootProps } from './AccordionRoot.svelte';
 export { default as Item } from './AccordionItem.svelte';
+export type { Props as ItemProps } from './AccordionItem.svelte';
 export { default as Header } from './AccordionHeader.svelte';
+export type { Props as HeaderProps } from './AccordionHeader.svelte';
 export { default as Trigger } from './AccordionTrigger.svelte';
+export type { Props as TriggerProps } from './AccordionTrigger.svelte';
 export { default as Panel } from './AccordionPanel.svelte';
+export type { Props as PanelProps } from './AccordionPanel.svelte';
 export type { AccordionValue } from './accordion-context.svelte.js';
+export type { AccordionState, AccordionItemState } from './accordion-context.svelte.js';

@@ -20,7 +20,7 @@ Components use the same compound naming style as Base UI, adapted to Svelte bind
 
 ```svelte
 <script lang="ts">
-  import { Accordion } from '@base-ui/svelte';
+  import { Accordion } from '@itisyb/baseui-svelte';
 
   let value = $state<string | null>('account');
 </script>
@@ -51,7 +51,7 @@ Every stateful root supports a bindable value (`bind:value`, `bind:open`, `bind:
 Subpath imports are available when that better fits an application's bundler:
 
 ```ts
-import * as Dialog from '@base-ui/svelte/dialog';
+import * as Dialog from '@itisyb/baseui-svelte/dialog';
 ```
 
 ### Dialog

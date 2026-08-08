@@ -1,8 +1,16 @@
 export { default as Root } from './SliderRoot.svelte';
+export type { Props as RootProps } from './SliderRoot.svelte';
 export { default as Control } from './SliderControl.svelte';
+export type { Props as ControlProps } from './SliderControl.svelte';
 export { default as Track } from './SliderTrack.svelte';
+export type { Props as TrackProps } from './SliderTrack.svelte';
 export { default as Indicator } from './SliderIndicator.svelte';
+export type { Props as IndicatorProps } from './SliderIndicator.svelte';
 export { default as Thumb } from './SliderThumb.svelte';
+export type { Props as ThumbProps } from './SliderThumb.svelte';
 export { default as Label } from './SliderLabel.svelte';
+export type { Props as LabelProps } from './SliderLabel.svelte';
 export { default as Value } from './SliderValue.svelte';
+export type { Props as ValueProps } from './SliderValue.svelte';
 export type { SliderValue, SliderChangeReason } from './slider-context.svelte.js';
+export type { SliderState } from './slider-context.svelte.js';

@@ -4,7 +4,7 @@
   import type { Direction, OnValueChange, Orientation } from '../shared/types.js';
   import { AccordionState, type AccordionValue, setAccordionContext } from './accordion-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     value?: AccordionValue;
     multiple?: boolean;

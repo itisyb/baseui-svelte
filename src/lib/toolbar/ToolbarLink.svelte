@@ -3,7 +3,7 @@
   import type { HTMLAnchorAttributes } from 'svelte/elements';
   import { composeEventHandlers } from '../shared/events.js';
   import { getToolbarContext } from './toolbar-context.svelte.js';
-  interface Props extends Omit<HTMLAnchorAttributes, 'children'> { children?: Snippet; href: string; ref?: HTMLAnchorElement | null; }
+  export interface Props extends Omit<HTMLAnchorAttributes, 'children'> { children?: Snippet; href: string; ref?: HTMLAnchorElement | null; }
   let { children, href, ref = $bindable(null), onkeydown, ...rest }: Props = $props();
   const toolbar = getToolbarContext();
   $effect(() => { if (ref) return toolbar.register(ref); });

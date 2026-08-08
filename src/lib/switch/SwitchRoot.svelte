@@ -6,7 +6,7 @@
   import { setSwitchContext, SwitchState } from './switch-context.svelte.js';
 
   type SwitchReason = 'trigger-press';
-  interface Props extends Omit<HTMLButtonAttributes, 'children' | 'value'> {
+  export interface Props extends Omit<HTMLButtonAttributes, 'children' | 'value'> {
     children?: Snippet;
     checked?: boolean;
     onCheckedChange?: OnValueChange<boolean, SwitchReason>;

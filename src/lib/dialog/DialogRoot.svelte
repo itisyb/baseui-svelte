@@ -4,7 +4,7 @@
   import { DialogState, type DialogOpenReason, setDialogContext } from './dialog-context.svelte.js';
   import type { DialogHandle } from './dialog-handle.svelte.js';
 
-  interface Props {
+  export interface Props {
     children?: Snippet;
     open?: boolean;
     modal?: boolean;

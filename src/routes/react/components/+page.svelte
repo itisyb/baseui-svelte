@@ -1,7 +1,1 @@
-<script lang="ts">
-  import DocsShell from '../../DocsShell.svelte';
-
-  let { data } = $props();
-</script>
-
-<DocsShell {data} />
+<!-- The server load permanently redirects to the canonical Svelte documentation. -->

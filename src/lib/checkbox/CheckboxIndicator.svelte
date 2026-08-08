@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import { getCheckboxContext } from './checkbox-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
     children?: Snippet;
     keepMounted?: boolean;
     ref?: HTMLSpanElement | null;

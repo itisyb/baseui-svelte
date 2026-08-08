@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import { getAccordionContext, getAccordionItemContext } from './accordion-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     level?: number;
     ref?: HTMLDivElement | null;

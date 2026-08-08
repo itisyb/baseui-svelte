@@ -3,7 +3,7 @@
   import Portal from '../portal/Portal.svelte';
   import { getDialogContext } from './dialog-context.svelte.js';
 
-  interface Props {
+  export interface Props {
     children?: Snippet;
     target?: HTMLElement | string;
     keepMounted?: boolean;

@@ -4,7 +4,7 @@
   import { composeEventHandlers } from '../shared/events.js';
   import { getTabsContext } from './tabs-context.svelte.js';
 
-  interface Props extends Omit<HTMLButtonAttributes, 'children' | 'value'> {
+  export interface Props extends Omit<HTMLButtonAttributes, 'children' | 'value'> {
     children?: Snippet;
     value: string;
     ref?: HTMLButtonElement | null;

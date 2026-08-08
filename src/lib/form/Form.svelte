@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { HTMLFormAttributes } from 'svelte/elements';
-  interface Props extends Omit<HTMLFormAttributes, 'children'> {
+  export interface Props extends Omit<HTMLFormAttributes, 'children'> {
     children?: Snippet;
     errors?: Record<string, string | string[]>;
     onClearErrors?: (errors: Record<string, string | string[]>) => void;

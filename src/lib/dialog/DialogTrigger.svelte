@@ -4,7 +4,7 @@
   import { composeEventHandlers } from '../shared/events.js';
   import { getDialogContext } from './dialog-context.svelte.js';
 
-  interface Props extends Omit<HTMLButtonAttributes, 'children'> {
+  export interface Props extends Omit<HTMLButtonAttributes, 'children'> {
     children?: Snippet;
     ref?: HTMLButtonElement | null;
   }

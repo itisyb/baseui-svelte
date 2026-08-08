@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; import { getScrollAreaContext } from './scroll-area-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; ref?: HTMLDivElement | null; }
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; ref?: HTMLDivElement | null; }
   let { children, ref = $bindable(null), ...rest }: Props = $props(); const area = getScrollAreaContext(); $effect.pre(() => { area.content = ref; });
 </script>
 <div bind:this={ref} {...rest}>{@render children?.()}</div>

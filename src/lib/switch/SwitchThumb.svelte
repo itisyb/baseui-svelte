@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import { getSwitchContext } from './switch-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
     children?: Snippet;
     ref?: HTMLSpanElement | null;
   }

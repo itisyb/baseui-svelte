@@ -1,5 +1,6 @@
 export { default as Root } from '../menu/MenuRoot.svelte';
 export { default as Trigger } from './ContextMenuTrigger.svelte';
+export type { Props as TriggerProps } from './ContextMenuTrigger.svelte';
 export { default as Portal } from '../popover/PopoverPortal.svelte';
 export { default as Positioner } from '../popover/PopoverPositioner.svelte';
 export { default as Popup } from '../menu/MenuPopup.svelte';

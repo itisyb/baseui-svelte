@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; import { getPopoverContext } from '../popover/popover-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; disabled?: boolean; ref?: HTMLDivElement | null; }
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; disabled?: boolean; ref?: HTMLDivElement | null; }
   let { children, disabled = false, ref = $bindable(null), oncontextmenu, onkeydown, ...rest }: Props = $props(); const menu = getPopoverContext(); let anchor: HTMLSpanElement | null = null;
   function openAt(x: number, y: number, event: Event) { if (disabled) return; anchor?.remove(); anchor = document.createElement('span'); Object.assign(anchor.style, { position: 'fixed', left: `${x}px`, top: `${y}px`, width: '0px', height: '0px' }); document.body.append(anchor); menu.trigger = anchor; menu.setOpen(true, 'trigger-press', event); }
   function context(event: MouseEvent) { oncontextmenu?.(event as MouseEvent & { currentTarget: EventTarget & HTMLDivElement }); if (!event.defaultPrevented && !disabled) { event.preventDefault(); openAt(event.clientX, event.clientY, event); } }

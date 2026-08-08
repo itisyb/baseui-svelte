@@ -3,7 +3,7 @@
   import type { HTMLButtonAttributes } from 'svelte/elements';
   import { composeEventHandlers } from '../shared/events.js';
   import { getToolbarContext } from './toolbar-context.svelte.js';
-  interface Props extends Omit<HTMLButtonAttributes, 'children'> { children?: Snippet; ref?: HTMLButtonElement | null; }
+  export interface Props extends Omit<HTMLButtonAttributes, 'children'> { children?: Snippet; ref?: HTMLButtonElement | null; }
   let { children, ref = $bindable(null), onkeydown, ...rest }: Props = $props();
   const toolbar = getToolbarContext();
   $effect(() => { if (ref) return toolbar.register(ref); });

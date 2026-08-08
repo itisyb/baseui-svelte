@@ -1,6 +1,13 @@
 export { default as Root } from './ScrollAreaRoot.svelte';
+export type { Props as RootProps } from './ScrollAreaRoot.svelte';
 export { default as Viewport } from './ScrollAreaViewport.svelte';
+export type { Props as ViewportProps } from './ScrollAreaViewport.svelte';
 export { default as Content } from './ScrollAreaContent.svelte';
+export type { Props as ContentProps } from './ScrollAreaContent.svelte';
 export { default as Scrollbar } from './ScrollAreaScrollbar.svelte';
+export type { Props as ScrollbarProps } from './ScrollAreaScrollbar.svelte';
 export { default as Thumb } from './ScrollAreaThumb.svelte';
+export type { Props as ThumbProps } from './ScrollAreaThumb.svelte';
 export { default as Corner } from './ScrollAreaCorner.svelte';
+export type { Props as CornerProps } from './ScrollAreaCorner.svelte';
+export type { ScrollAreaState } from './scroll-area-context.svelte.js';

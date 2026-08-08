@@ -1,6 +1,13 @@
 export { default as Root } from './Meter.svelte';
+export type { Props as RootProps } from './Meter.svelte';
 export { default as Meter } from './Meter.svelte';
+export type { Props as MeterProps } from './Meter.svelte';
 export { default as Track } from './MeterTrack.svelte';
+export type { Props as TrackProps } from './MeterTrack.svelte';
 export { default as Indicator } from './MeterIndicator.svelte';
+export type { Props as IndicatorProps } from './MeterIndicator.svelte';
 export { default as Value } from './MeterValue.svelte';
+export type { Props as ValueProps } from './MeterValue.svelte';
 export { default as Label } from './MeterLabel.svelte';
+export type { Props as LabelProps } from './MeterLabel.svelte';
+export type { MeterState } from './meter-context.svelte.js';

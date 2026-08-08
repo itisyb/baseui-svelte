@@ -1,2 +1,2 @@
-<script lang="ts">import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; ref?: HTMLDivElement | null; } let { children, ref = $bindable(null), ...rest }: Props = $props();</script>
+<script lang="ts">import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; ref?: HTMLDivElement | null; } let { children, ref = $bindable(null), ...rest }: Props = $props();</script>
 <div bind:this={ref} {...rest} role="presentation">{@render children?.()}</div>

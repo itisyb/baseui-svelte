@@ -3,7 +3,7 @@
   import { composeEventHandlers } from '../shared/events.js';
   import { getFieldContext } from './field-context.svelte.js';
 
-  interface Props extends HTMLInputAttributes {
+  export interface Props extends HTMLInputAttributes {
     value?: string | number | readonly string[] | null;
     ref?: HTMLInputElement | null;
   }

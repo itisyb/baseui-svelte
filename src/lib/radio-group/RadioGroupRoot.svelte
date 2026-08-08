@@ -4,7 +4,7 @@
   import type { Direction, OnValueChange, Orientation } from '../shared/types.js';
   import { RadioGroupState, setRadioGroupContext } from './radio-group-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     value?: string | null;
     onValueChange?: OnValueChange<string, 'item-press' | 'keyboard'>;

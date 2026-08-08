@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements'; import type { Orientation } from '../shared/types.js'; import { getScrollAreaContext } from './scroll-area-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; orientation?: Orientation; minSize?: number; ref?: HTMLDivElement | null; }
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; orientation?: Orientation; minSize?: number; ref?: HTMLDivElement | null; }
   let { children, orientation = 'vertical', minSize = 18, ref = $bindable(null), style, onpointerdown, ...rest }: Props = $props(); const area = getScrollAreaContext();
   let size = $derived(orientation === 'vertical' ? Math.max(minSize, area.clientHeight ** 2 / Math.max(area.scrollHeight, 1)) : Math.max(minSize, area.clientWidth ** 2 / Math.max(area.scrollWidth, 1)));
   let trackSize = $derived(orientation === 'vertical' ? area.clientHeight : area.clientWidth); let maxScroll = $derived(orientation === 'vertical' ? area.scrollHeight - area.clientHeight : area.scrollWidth - area.clientWidth); let scroll = $derived(orientation === 'vertical' ? area.scrollTop : area.scrollLeft); let position = $derived(maxScroll > 0 ? (scroll / maxScroll) * Math.max(0, trackSize - size) : 0);

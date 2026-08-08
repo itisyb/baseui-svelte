@@ -1,1 +1,11 @@
-export { default as Root } from './NavigationMenuRoot.svelte'; export { default as List } from './NavigationMenuList.svelte'; export { default as Item } from './NavigationMenuItem.svelte'; export { default as Content } from './NavigationMenuContent.svelte'; export { default as Trigger } from './NavigationMenuTrigger.svelte'; export { default as Portal } from '../popover/PopoverPortal.svelte'; export { default as Positioner } from '../popover/PopoverPositioner.svelte'; export { default as Viewport } from './NavigationMenuViewport.svelte'; export { default as Backdrop } from '../popover/PopoverBackdrop.svelte'; export { default as Popup } from './NavigationMenuPopup.svelte'; export { default as Arrow } from '../popover/PopoverArrow.svelte'; export { default as Link } from './NavigationMenuLink.svelte'; export { default as Icon } from './NavigationMenuIcon.svelte';
+export { default as Root } from './NavigationMenuRoot.svelte';
+export type { Props as RootProps } from './NavigationMenuRoot.svelte'; export { default as List } from './NavigationMenuList.svelte';
+export type { Props as ListProps } from './NavigationMenuList.svelte'; export { default as Item } from './NavigationMenuItem.svelte';
+export type { Props as ItemProps } from './NavigationMenuItem.svelte'; export { default as Content } from './NavigationMenuContent.svelte';
+export type { Props as ContentProps } from './NavigationMenuContent.svelte'; export { default as Trigger } from './NavigationMenuTrigger.svelte';
+export type { Props as TriggerProps } from './NavigationMenuTrigger.svelte'; export { default as Portal } from '../popover/PopoverPortal.svelte'; export { default as Positioner } from '../popover/PopoverPositioner.svelte'; export { default as Viewport } from './NavigationMenuViewport.svelte';
+export type { Props as ViewportProps } from './NavigationMenuViewport.svelte'; export { default as Backdrop } from '../popover/PopoverBackdrop.svelte'; export { default as Popup } from './NavigationMenuPopup.svelte';
+export type { Props as PopupProps } from './NavigationMenuPopup.svelte'; export { default as Arrow } from '../popover/PopoverArrow.svelte'; export { default as Link } from './NavigationMenuLink.svelte';
+export type { Props as LinkProps } from './NavigationMenuLink.svelte'; export { default as Icon } from './NavigationMenuIcon.svelte';
+export type { Props as IconProps } from './NavigationMenuIcon.svelte';
+export type { NavigationMenuState, NavigationMenuItemState } from './navigation-menu-context.svelte.js';

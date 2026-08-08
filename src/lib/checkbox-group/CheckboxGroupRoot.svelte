@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import type { OnValueChange } from '../shared/types.js';
   import { CheckboxGroupState, setCheckboxGroupContext } from './checkbox-group-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     value?: string[];
     onValueChange?: OnValueChange<string[], 'item-press'>;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'; import type { HTMLButtonAttributes } from 'svelte/elements'; import { getPopoverContext } from '../popover/popover-context.svelte.js'; import { getTooltipProvider } from './tooltip-provider-context.svelte.js';
-  interface Props extends Omit<HTMLButtonAttributes, 'children'> { children?: Snippet; delay?: number; closeDelay?: number; ref?: HTMLButtonElement | null; }
+  export interface Props extends Omit<HTMLButtonAttributes, 'children'> { children?: Snippet; delay?: number; closeDelay?: number; ref?: HTMLButtonElement | null; }
   let { children, delay, closeDelay, ref = $bindable(null), onpointerenter, onpointerleave, onfocus, onblur, ...rest }: Props = $props(); const tooltip = getPopoverContext(); const provider = getTooltipProvider();
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect.pre(() => { tooltip.trigger = ref; });

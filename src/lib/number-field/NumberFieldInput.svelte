@@ -3,7 +3,7 @@
   import { composeEventHandlers } from '../shared/events.js';
   import { getNumberFieldContext } from './number-field-context.svelte.js';
 
-  interface Props extends Omit<HTMLInputAttributes, 'value' | 'min' | 'max' | 'step'> { ref?: HTMLInputElement | null; }
+  export interface Props extends Omit<HTMLInputAttributes, 'value' | 'min' | 'max' | 'step'> { ref?: HTMLInputElement | null; }
   let { ref = $bindable(null), oninput, onfocus, onblur, onkeydown, ...rest }: Props = $props();
   const numberField = getNumberFieldContext();
   $effect.pre(() => { numberField.input = ref; });

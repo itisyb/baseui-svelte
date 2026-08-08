@@ -5,7 +5,7 @@
   import { snapToStep } from '../number-field/number-field-context.svelte.js';
   import { setSliderContext, SliderState, type SliderChangeReason, type SliderValue } from './slider-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     value?: SliderValue;
     onValueChange?: OnValueChange<SliderValue, SliderChangeReason>;

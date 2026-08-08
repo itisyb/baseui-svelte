@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { HTMLInputAttributes } from 'svelte/elements';
 
-  interface Props extends HTMLInputAttributes {
+  export interface Props extends HTMLInputAttributes {
     ref?: HTMLInputElement | null;
     value?: string | number | readonly string[] | null;
   }

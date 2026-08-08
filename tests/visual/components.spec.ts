@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/react/components');
+  await page.goto('/svelte/components');
   await page.evaluate(() => document.fonts.ready);
   const prefix = await page.evaluate(() =>
     /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌘' : 'Ctrl+',
@@ -30,14 +30,65 @@ test('uses the exact component index text', async ({ page }) => {
   );
 });
 
-test('does not link to absent local component pages', async ({ page }) => {
-  const missingLocalLinks = await page.locator('a').evaluateAll((links) =>
-    links
-      .map((link) => (link as HTMLAnchorElement).getAttribute('href'))
-      .filter((href) => href?.startsWith('/react/components/')),
+test('keeps every documentation destination local', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  const links = await page.locator('a').evaluateAll((anchors) =>
+    anchors.map((anchor) => (anchor as HTMLAnchorElement).getAttribute('href')).filter(Boolean),
   );
+  const localDocsLinks = [...new Set(links.filter((href) => href?.startsWith('/svelte/')))] as string[];
 
-  expect(missingLocalLinks).toEqual([]);
+  expect(localDocsLinks.filter((href) => href.startsWith('/svelte/components/'))).toHaveLength(37);
+  expect(links.filter((href) => href?.startsWith('https://base-ui.com/react'))).toEqual([]);
+
+  for (const href of localDocsLinks) {
+    const response = await request.get(href);
+    expect(response.status(), href).toBe(200);
+  }
+});
+
+test('permanently redirects the React compatibility route', async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  const response = await request.get('/react/components/accordion', { maxRedirects: 0 });
+  expect(response.status()).toBe(308);
+  expect(response.headers().location).toBe('/svelte/components/accordion');
+});
+
+test('matches the upstream component-detail geometry and behavior', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await page.goto('/svelte/components/accordion');
+  await page.evaluate(() => document.fonts.ready);
+
+  const expected = [
+    ['h1', { x: 336, y: 64, width: 768, height: 43.203125 }],
+    ['.Subtitle', { x: 336, y: 111.203125, width: 768, height: 79 }],
+    ['.ContentActions', { x: 336, y: 155.203125, width: 265.734375, height: 35 }],
+    ['.DemoRoot', { x: 336, y: 214.203125, width: 768, height: 336 }],
+  ] as const;
+  for (const [selector, box] of expected) {
+    await expect.poll(async () => page.locator(selector).first().boundingBox()).toEqual(box);
+  }
+
+  await expect(page.locator('a[href^="https://base-ui.com/react"]')).toHaveCount(0);
+  await expect(page.locator('.MdContent table').first()).toBeVisible();
+
+  const markdown = await request.get('/svelte/components/accordion.md');
+  expect(markdown.status()).toBe(200);
+  expect(markdown.headers()['content-type']).toContain('text/markdown');
+  expect(await markdown.text()).toContain("import * as Accordion from '@itisyb/baseui-svelte/accordion'");
+
+  const firstTrigger = page.locator('.DemoPreview [data-demo-part="Trigger"]').first();
+  const firstPanel = page.locator('.DemoPreview [data-demo-part="Panel"]').first();
+  await expect(firstPanel).toBeHidden();
+  await firstTrigger.click();
+  await expect(firstPanel).toBeVisible();
+  await expect(firstTrigger).toHaveAttribute('aria-expanded', 'true');
+
+  await page.reload();
+  await expect(page).toHaveScreenshot('accordion-detail.png', {
+    animations: 'disabled',
+    caret: 'hide',
+    maxDiffPixels: 0,
+  });
 });
 
 test('opens and filters the exact Search or Navigation surface', async ({ page }, testInfo) => {

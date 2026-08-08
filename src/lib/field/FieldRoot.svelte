@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import { FieldState, setFieldContext } from './field-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     name?: string;
     disabled?: boolean;

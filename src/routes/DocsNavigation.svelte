@@ -29,11 +29,8 @@
   }
 
   function href(section: string, item: string) {
-    if (item === 'llms.txt') return 'https://base-ui.com/llms.txt';
-    if (section === 'Overview') return `https://base-ui.com/react/overview/${slug(item)}`;
-    if (section === 'Handbook') return `https://base-ui.com/react/handbook/${slug(item)}`;
-    if (section === 'Components') return `https://base-ui.com/react/components/${slug(item)}`;
-    return `https://base-ui.com/react/utils/${slug(item)}`;
+    if (item === 'llms.txt') return '/llms.txt';
+    return `/svelte/${section.toLowerCase()}/${slug(item)}`;
   }
 
   const groups = $derived([
@@ -242,7 +239,7 @@
                       <div class="MobileNavSection">
                         <div class="MobileNavHeading">Resources</div>
                         <ul class="MobileNavList">
-                          <li><a class="MobileNavLink" href="https://www.npmjs.com/package/@base-ui/react"><span class="MobileNavResourceRow"><span class="MobileNavLinkText">npm package</span><span class="MobileNavVersion">1.7.0</span></span></a></li>
+                          <li><a class="MobileNavLink" href="https://www.npmjs.com/package/@itisyb/baseui-svelte"><span class="MobileNavResourceRow"><span class="MobileNavLinkText">npm package</span><span class="MobileNavVersion">0.1.0</span></span></a></li>
                           <li><a class="MobileNavLink" href="https://github.com/itisyb/baseui-svelte"><span class="MobileNavLinkText">GitHub</span></a></li>
                         </ul>
                       </div>

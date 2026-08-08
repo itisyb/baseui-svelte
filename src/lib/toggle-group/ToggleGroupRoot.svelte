@@ -4,7 +4,7 @@
   import type { Direction, OnValueChange, Orientation } from '../shared/types.js';
   import { setToggleGroupContext, ToggleGroupState, type ToggleGroupValue } from './toggle-group-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     value?: ToggleGroupValue;
     multiple?: boolean;

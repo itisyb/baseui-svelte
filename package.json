@@ -1,5 +1,5 @@
 {
-  "name": "@base-ui/svelte",
+  "name": "@itisyb/baseui-svelte",
   "version": "0.1.0",
   "description": "Unstyled, accessible UI primitives for Svelte 5",
   "license": "MIT",
@@ -58,8 +58,6 @@
     "jsdom": "^26.1.0",
     "marked": "^18.0.9",
     "publint": "^0.3.12",
-    "remark": "^15.0.1",
-    "remark-typography": "^0.7.3",
     "svelte": "^5.56.8",
     "svelte-check": "^4.3.1",
     "typescript": "^5.9.2",

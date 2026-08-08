@@ -3,7 +3,7 @@
   import type { HTMLLabelAttributes } from 'svelte/elements';
   import { getFieldContext } from './field-context.svelte.js';
 
-  interface Props extends Omit<HTMLLabelAttributes, 'children'> {
+  export interface Props extends Omit<HTMLLabelAttributes, 'children'> {
     children?: Snippet;
     ref?: HTMLLabelElement | null;
   }

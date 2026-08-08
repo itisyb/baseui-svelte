@@ -5,6 +5,10 @@
   interface Data {
     components: readonly string[];
     html: string;
+    markdown: string;
+    path: string;
+    title: string;
+    headings: readonly { depth: number; id: string; text: string }[];
   }
 
   let { data }: { data: Data } = $props();
@@ -25,6 +29,11 @@
     if (value === 'mergeProps') return 'merge-props';
     if (value === 'useRender') return 'use-render';
     return value.toLowerCase().replaceAll(' ', '-');
+  }
+
+  function docsHref(section: string, item: string) {
+    if (item === 'llms.txt') return '/llms.txt';
+    return `/svelte/${section}/${slug(item)}`;
   }
 
   onMount(() => {
@@ -49,10 +58,48 @@
     return () => window.removeEventListener('keydown', keydown, { capture: true });
   }
 
+  function enhanceDemos(article: HTMLElement) {
+    function click(event: MouseEvent) {
+      const copyCode = (event.target as Element | null)?.closest<HTMLButtonElement>('[aria-label="Copy code"]');
+      if (copyCode && article.contains(copyCode)) {
+        const code = copyCode.closest('.CodeFrame')?.querySelector('code')?.textContent ?? '';
+        void navigator.clipboard?.writeText(code);
+        return;
+      }
+
+      const showCode = (event.target as Element | null)?.closest<HTMLButtonElement>('.DemoShowCode');
+      if (showCode && article.contains(showCode)) {
+        const root = showCode.closest('.DemoRoot');
+        const expanded = root?.classList.toggle('DemoCodeExpanded') ?? false;
+        showCode.textContent = expanded ? 'Hide code' : 'Show code';
+        return;
+      }
+
+      const trigger = (event.target as Element | null)?.closest<HTMLElement>('[data-demo-part="Trigger"]');
+      if (!trigger || !article.contains(trigger)) return;
+
+      const group = trigger.closest('[data-demo-part="Item"]') ?? trigger.parentElement;
+      const localPanel = group?.querySelector<HTMLElement>('[data-demo-part="Panel"], [data-demo-part="Content"]');
+      const preview = trigger.closest('.DemoPreview');
+      const popup = localPanel ?? preview?.querySelector<HTMLElement>('[data-demo-part="Popup"], [data-demo-part="Positioner"]');
+      if (!popup) return;
+
+      const open = popup.hidden;
+      popup.hidden = !open;
+      trigger.toggleAttribute('data-panel-open', open);
+      trigger.setAttribute('aria-expanded', String(open));
+      group?.toggleAttribute('data-open', open);
+    }
+
+    article.addEventListener('click', click);
+    return () => article.removeEventListener('click', click);
+  }
+
 </script>
 
 <svelte:head>
-  <title>Components · Base UI</title>
+  <title>{data.title} · Base UI</title>
+  <link rel="canonical" href={`https://baseui-svelte.vercel.app/svelte${data.path ? `/${data.path}` : ''}`} />
 </svelte:head>
 
 <a class="SkipNav" href="#main-content">Skip to contents</a>
@@ -63,7 +110,7 @@
       <div class="ContentLayoutRoot">
         <header class="Header">
           <div class="HeaderInner">
-            <a class="HeaderLogoLink" href="/" aria-label="Go to the homepage">
+            <a class="HeaderLogoLink" href="/svelte/components" aria-label="Go to the homepage">
               <svg width="17" height="24" viewBox="0 0 17 24" fill="currentColor" aria-label="Base UI">
                 <path d="M9.5001 7.01537C9.2245 6.99837 9 7.22385 9 7.49999V23C13.4183 23 17 19.4183 17 15C17 10.7497 13.6854 7.27351 9.5001 7.01537Z" />
                 <path d="M8 9.8V12V23C3.58172 23 0 19.0601 0 14.2V12V1C4.41828 1 8 4.93989 8 9.8Z" />
@@ -87,7 +134,7 @@
               <div class="SideNavHeading">Overview</div>
               <ul class="SideNavList">
                 {#each overview as item}
-                  <li class="SideNavItem"><a class="SideNavLink" href={`https://base-ui.com/react/overview/${slug(item)}`}>{item}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('overview', item)} aria-current={data.path === `overview/${slug(item)}` ? 'page' : undefined}>{item}</a></li>
                 {/each}
               </ul>
             </div>
@@ -95,7 +142,7 @@
               <div class="SideNavHeading">Handbook</div>
               <ul class="SideNavList">
                 {#each handbook as item}
-                  <li class="SideNavItem"><a class="SideNavLink" href={item === 'llms.txt' ? 'https://base-ui.com/llms.txt' : `https://base-ui.com/react/handbook/${slug(item)}`}>{item}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('handbook', item)} aria-current={data.path === `handbook/${slug(item)}` ? 'page' : undefined}>{item}</a></li>
                 {/each}
               </ul>
             </div>
@@ -103,7 +150,7 @@
               <div class="SideNavHeading">Components</div>
               <ul class="SideNavList">
                 {#each data.components as component}
-                  <li class="SideNavItem"><a class="SideNavLink" href={`https://base-ui.com/react/components/${slug(component)}`}>{component}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('components', component)} aria-current={data.path === `components/${slug(component)}` ? 'page' : undefined}>{component}</a></li>
                 {/each}
               </ul>
             </div>
@@ -111,7 +158,7 @@
               <div class="SideNavHeading">Utils</div>
               <ul class="SideNavList">
                 {#each utils as item}
-                  <li class="SideNavItem"><a class="SideNavLink" href={`https://base-ui.com/react/utils/${slug(item)}`}>{item}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('utils', item)} aria-current={data.path === `utils/${slug(item)}` ? 'page' : undefined}>{item}</a></li>
                 {/each}
               </ul>
             </div>
@@ -125,9 +172,9 @@
                   </a>
                 </li>
                 <li class="SideNavItem">
-                  <a class="SideNavLink SideNavIconLink" href="https://www.npmjs.com/package/@base-ui/react">
+                  <a class="SideNavLink SideNavIconLink" href="https://www.npmjs.com/package/@itisyb/baseui-svelte">
                     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect width="16" height="16" fill="black" /><rect x="3" y="3" width="10" height="10" fill="white" /><path d="M8 5H11V13H8V5Z" fill="black" /></svg>
-                    <span>npm<span class="SideNavVersion">1.7.0</span></span>
+                    <span>npm<span class="SideNavVersion">0.1.0</span></span>
                   </a>
                 </li>
               </ul>
@@ -140,18 +187,18 @@
             <nav class="QuickNavRoot" aria-label="On this page">
               <div class="QuickNavInner">
                 <div class="QuickNavViewport">
-                  <header class="VisuallyHidden">Components</header>
+                  <header class="VisuallyHidden">{data.title}</header>
                   <ul class="QuickNavList">
                     <li><a class="QuickNavLink" href={'#'}>(Top)</a></li>
-                    {#each data.components as component}
-                      <li><a class="QuickNavLink" href={`#${slug(component)}`}>{component}</a></li>
+                    {#each data.headings as heading}
+                      <li class:data-depth-3={heading.depth === 3}><a class="QuickNavLink" href={`#${heading.id}`}>{heading.text}</a></li>
                     {/each}
                   </ul>
                 </div>
               </div>
             </nav>
             <div class="QuickNavContent">
-              <article class="MdContent">{@html data.html}</article>
+              <article class="MdContent" {@attach enhanceDemos}>{@html data.html}</article>
             </div>
           </div>
         </main>

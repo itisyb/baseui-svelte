@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
   import type { HTMLAttributes } from 'svelte/elements';
   import { getNumberFieldContext } from './number-field-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; pixelSensitivity?: number; ref?: HTMLDivElement | null; }
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> { children?: Snippet; pixelSensitivity?: number; ref?: HTMLDivElement | null; }
   let { children, pixelSensitivity = 2, ref = $bindable(null), onpointerdown, ...rest }: Props = $props();
   const numberField = getNumberFieldContext();
   let scrubbing = $state(false);

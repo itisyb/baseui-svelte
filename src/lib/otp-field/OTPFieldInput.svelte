@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { HTMLInputAttributes } from 'svelte/elements'; import { composeEventHandlers } from '../shared/events.js'; import { getOTPFieldContext } from './otp-field-context.svelte.js';
-  interface Props extends Omit<HTMLInputAttributes, 'value' | 'type' | 'maxlength'> { index?: number; ref?: HTMLInputElement | null; }
+  export interface Props extends Omit<HTMLInputAttributes, 'value' | 'type' | 'maxlength'> { index?: number; ref?: HTMLInputElement | null; }
   let { index: explicitIndex, ref = $bindable(null), oninput, onkeydown, onfocus, ...rest }: Props = $props(); const otp = getOTPFieldContext(); let index = $derived(explicitIndex ?? Math.max(0, otp.inputs.indexOf(ref!))); let slot = $derived(otp.value[index] ?? '');
   $effect(() => { if (ref) return otp.register(ref); });
   function input(event: Event) { const raw = (event.currentTarget as HTMLInputElement).value; const inserted = otp.normalize(raw); const chars = Array.from(otp.value.padEnd(otp.length, ' ')); chars.splice(index, inserted.length, ...inserted); const next = chars.join('').trimEnd(); otp.setValue(next, inserted.length > 1 ? 'paste' : 'input', event); queueMicrotask(() => otp.focus(Math.min(otp.length - 1, index + Math.max(1, inserted.length)))); }

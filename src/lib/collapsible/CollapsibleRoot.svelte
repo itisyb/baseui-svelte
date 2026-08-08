@@ -4,7 +4,7 @@
   import type { OnValueChange } from '../shared/types.js';
   import { CollapsibleState, setCollapsibleContext } from './collapsible-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet;
     open?: boolean;
     onOpenChange?: OnValueChange<boolean, 'trigger-press'>;

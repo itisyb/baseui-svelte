@@ -1,7 +1,14 @@
 export { default as Root } from './ToolbarRoot.svelte';
+export type { Props as RootProps } from './ToolbarRoot.svelte';
 export { default as Button } from './ToolbarButton.svelte';
+export type { Props as ButtonProps } from './ToolbarButton.svelte';
 export { default as Link } from './ToolbarLink.svelte';
+export type { Props as LinkProps } from './ToolbarLink.svelte';
 export { default as Input } from './ToolbarInput.svelte';
+export type { Props as InputProps } from './ToolbarInput.svelte';
 export { default as Group } from './ToolbarGroup.svelte';
+export type { Props as GroupProps } from './ToolbarGroup.svelte';
 export { default as Separator } from './ToolbarSeparator.svelte';
+export type { Props as SeparatorProps } from './ToolbarSeparator.svelte';
 export { type Orientation } from '../shared/types.js';
+export type { ToolbarState } from './toolbar-context.svelte.js';

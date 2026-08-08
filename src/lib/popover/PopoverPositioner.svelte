@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte'; import type { HTMLAttributes } from 'svelte/elements';
   import { arrow, autoUpdate, computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
   import { getPopoverContext } from './popover-context.svelte.js';
-  interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
     children?: Snippet; side?: 'top' | 'right' | 'bottom' | 'left'; align?: 'start' | 'center' | 'end'; sideOffset?: number; alignOffset?: number; collisionPadding?: number; strategy?: 'absolute' | 'fixed'; keepMounted?: boolean; ref?: HTMLDivElement | null;
   }
   let { children, side = 'bottom', align = 'center', sideOffset = 8, alignOffset = 0, collisionPadding = 8, strategy = 'absolute', keepMounted = false, ref = $bindable(null), style, ...rest }: Props = $props();

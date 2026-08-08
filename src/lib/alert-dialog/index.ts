@@ -4,6 +4,7 @@ export { default as Portal } from '../dialog/DialogPortal.svelte';
 export { default as Viewport } from '../dialog/DialogViewport.svelte';
 export { default as Backdrop } from '../dialog/DialogBackdrop.svelte';
 export { default as Popup } from './AlertDialogPopup.svelte';
+export type { Props as PopupProps } from './AlertDialogPopup.svelte';
 export { default as Title } from '../dialog/DialogTitle.svelte';
 export { default as Description } from '../dialog/DialogDescription.svelte';
 export { default as Close } from '../dialog/DialogClose.svelte';

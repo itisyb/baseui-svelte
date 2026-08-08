@@ -2,7 +2,7 @@
   import type { HTMLImgAttributes } from 'svelte/elements';
   import { composeEventHandlers } from '../shared/events.js';
   import { getAvatarContext } from './avatar-context.svelte.js';
-  interface Props extends HTMLImgAttributes {
+  export interface Props extends HTMLImgAttributes {
     ref?: HTMLImageElement | null;
   }
   let { src, alt = '', ref = $bindable(null), onload, onerror, ...rest }: Props = $props();

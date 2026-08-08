@@ -424,9 +424,270 @@ svg {
   cursor: pointer;
 }
 
+.Subtitle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: -0.75rem 0 1.5rem;
+  font-size: var(--font-size-18);
+  line-height: 1.75rem;
+}
+
+.MdContent .Subtitle p {
+  margin: 0;
+}
+
+.ContentActions {
+  display: flex;
+  height: 2.1875rem;
+  align-items: flex-start;
+  column-gap: 1.5rem;
+  margin: 0;
+}
+
+.ContentActions a {
+  display: block;
+  height: 2.1875rem;
+  margin: 0;
+  color: currentColor;
+  line-height: 1.75rem;
+  text-decoration: none;
+}
+
+.ContentActions a > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  width: auto;
+  height: 2.1875rem;
+  margin-inline: -0.4375rem;
+  padding: 0.4375rem;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-14);
+  line-height: 1.25rem;
+  text-decoration: none;
+}
+
+.ContentActions svg {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+}
+
 .MdContent code {
   font-family: var(--font-mono);
   font-size: 0.875em;
+}
+
+.MdContent > pre,
+.DemoCode {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 1.25rem 0 1.5rem;
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-12);
+  background: var(--color-content);
+  color: var(--color-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-13);
+  line-height: 1.25rem;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.CodeFrame {
+  margin: 1.25rem 0 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-12);
+  background: var(--color-content);
+}
+
+.CodeFrame figcaption {
+  display: flex;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--gray-s2);
+  font-size: var(--font-size-13);
+  line-height: 1;
+}
+
+.CodeFrame figcaption button {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+}
+
+.CodeFrame pre {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0.5rem 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-13);
+  line-height: 1.25rem;
+  white-space: pre;
+}
+
+.CodeFrame pre code {
+  display: block;
+  min-height: 100%;
+  padding-inline: 0.75rem;
+}
+
+.MdContent table {
+  display: block;
+  width: 100%;
+  margin: 1.25rem 0 1.5rem;
+  overflow-x: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+  font-size: var(--font-size-13);
+  line-height: 1.25rem;
+}
+
+.MdContent th,
+.MdContent td {
+  min-width: 7rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.MdContent th {
+  font-weight: var(--font-weight-700);
+  background: var(--gray-s2);
+}
+
+.DemoRoot {
+  --demo-radius: var(--radius-12);
+  margin: 1.25rem 0 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--demo-radius);
+}
+
+.DemoPreview {
+  box-sizing: border-box;
+  display: flex;
+  min-width: fit-content;
+  min-height: 10.875rem;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  overflow: auto hidden;
+  background: var(--color-content);
+}
+
+.DemoPreview *,
+.DemoPreview *::before,
+.DemoPreview *::after {
+  all: revert;
+  box-sizing: border-box;
+}
+
+.DemoPreview [hidden] {
+  display: none !important;
+}
+
+.DemoToolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0;
+  padding-inline: 0;
+  border-block: 1px solid var(--color-border);
+  color: var(--gray-t2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-13);
+  line-height: 1;
+  user-select: none;
+}
+
+.DemoToolbar span {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.75rem;
+}
+
+.DemoToolbar span:first-child {
+  border-bottom: 1px solid var(--color-content);
+  background: var(--color-content);
+  color: var(--color-foreground);
+}
+
+.DemoToolbarSpacer {
+  flex: 1;
+  padding: 0 !important;
+}
+
+.DemoCode {
+  max-height: 7.625rem;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+}
+
+.DemoCodeExpanded .DemoCode {
+  max-height: none;
+  mask-image: none;
+}
+
+.DemoShowCode {
+  position: absolute;
+  left: 50%;
+  bottom: 0.75rem;
+  z-index: 2;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.625rem;
+  transform: translateX(-50%);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-content);
+  color: var(--color-foreground);
+  font: inherit;
+  font-size: var(--font-size-13);
+  cursor: pointer;
+}
+
+.DemoRoot {
+  position: relative;
+}
+
+.DemoIcon {
+  display: block;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .DemoRoot *,
+  .DemoRoot *::before,
+  .DemoRoot *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 @media (min-width: 40rem) {

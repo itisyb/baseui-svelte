@@ -4,7 +4,7 @@
   import type { OnValueChange } from '../shared/types.js';
   import { composeEventHandlers } from '../shared/events.js';
 
-  interface Props extends Omit<HTMLButtonAttributes, 'children'> {
+  export interface Props extends Omit<HTMLButtonAttributes, 'children'> {
     children?: Snippet;
     pressed?: boolean;
     onPressedChange?: OnValueChange<boolean, 'trigger-press'>;

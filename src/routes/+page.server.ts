@@ -1,8 +1,5 @@
-import { components, getComponentsHtml } from './docs-data.server';
+import { redirect } from '@sveltejs/kit';
 
-export async function load({ fetch }) {
-  return {
-    components,
-    html: await getComponentsHtml(fetch),
-  };
+export function load() {
+  redirect(308, '/svelte/components');
 }

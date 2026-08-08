@@ -3,7 +3,7 @@
   import type { HTMLAttributes } from 'svelte/elements';
   import { getRadioGroupContext } from '../radio-group/radio-group-context.svelte.js';
 
-  interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
+  export interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
     children?: Snippet;
     value: string;
     keepMounted?: boolean;

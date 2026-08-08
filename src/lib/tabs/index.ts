@@ -1,5 +1,11 @@
 export { default as Root } from './TabsRoot.svelte';
+export type { Props as RootProps } from './TabsRoot.svelte';
 export { default as List } from './TabsList.svelte';
+export type { Props as ListProps } from './TabsList.svelte';
 export { default as Tab } from './TabsTab.svelte';
+export type { Props as TabProps } from './TabsTab.svelte';
 export { default as Panel } from './TabsPanel.svelte';
+export type { Props as PanelProps } from './TabsPanel.svelte';
 export { default as Indicator } from './TabsIndicator.svelte';
+export type { Props as IndicatorProps } from './TabsIndicator.svelte';
+export type { TabsState } from './tabs-context.svelte.js';

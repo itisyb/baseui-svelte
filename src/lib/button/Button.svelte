@@ -7,7 +7,7 @@
     'data-disabled'?: '';
   };
 
-  interface Props extends Omit<HTMLButtonAttributes, 'children'> {
+  export interface Props extends Omit<HTMLButtonAttributes, 'children'> {
     children?: Snippet;
     child?: ChildSnippet<ButtonChildProps>;
     ref?: HTMLButtonElement | null;
