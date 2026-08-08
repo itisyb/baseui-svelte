@@ -61,6 +61,7 @@
   function enhanceDemos(article: HTMLElement) {
     const copyTimers = new Map<HTMLButtonElement, number>();
     const hoverTimers = new Map<HTMLElement, number>();
+    const overlayTriggers = new WeakMap<HTMLElement, HTMLElement>();
     const originalCopyIcons = new WeakMap<HTMLButtonElement, string>();
     const copiedIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="m2.5 8.5 4 4 7-9"></path></svg>';
     const copyStatus = document.createElement('span');
@@ -147,6 +148,7 @@
     }
 
     function setDemoOverlayOpen(trigger: HTMLElement, popup: HTMLElement, open: boolean, moveFocus = true) {
+      if (open) overlayTriggers.set(popup, trigger);
       const componentRoot = trigger.closest<HTMLElement>('[data-demo-part="Root"]');
       const boundary = componentRoot ?? trigger.closest<HTMLElement>('.DemoPreview');
       const layers: HTMLElement[] = [];
@@ -210,7 +212,9 @@
         if (modal) document.body.style.overflow = 'hidden';
         if (moveFocus) popup.focus();
       } else if (modal) {
-        document.body.style.overflow = '';
+        const anotherModal = [...article.querySelectorAll<HTMLElement>('[data-demo-component$=".Popup"][data-open]')]
+          .some((candidate) => candidate !== popup && /^(AlertDialog|Dialog|Drawer)\.Popup$/.test(candidate.dataset.demoComponent ?? ''));
+        if (!anotherModal) document.body.style.overflow = '';
       }
       if (!open) {
         backdrop?.toggleAttribute('data-open', false);
@@ -220,6 +224,26 @@
           if (backdrop) backdrop.hidden = true;
         }, 200);
       }
+    }
+
+    function closeOverlay(popup: HTMLElement, restoreFocus = true) {
+      const root = popup.closest<HTMLElement>('[data-demo-part="Root"]');
+      const trigger = overlayTriggers.get(popup)
+        ?? root?.querySelector<HTMLElement>('[data-demo-part="Trigger"][aria-expanded="true"]');
+      if (!trigger) return;
+      setDemoOverlayOpen(trigger, popup, false);
+      if (restoreFocus) trigger.focus();
+    }
+
+    function openCloseConfirmation(dialogPopup: HTMLElement, origin: HTMLElement) {
+      const preview = dialogPopup.closest<HTMLElement>('.DemoPreview');
+      const confirmation = [...(preview?.querySelectorAll<HTMLElement>('[data-demo-component="AlertDialog.Popup"]') ?? [])]
+        .find((candidate) => candidate !== dialogPopup && candidate.hidden);
+      if (!confirmation) return false;
+      dialogPopup.toggleAttribute('data-nested-dialog-open', true);
+      dialogPopup.style.setProperty('--nested-dialogs', '1');
+      setDemoOverlayOpen(origin, confirmation, true);
+      return true;
     }
 
     function setDemoFile(root: HTMLElement, tab: HTMLElement) {
@@ -331,6 +355,7 @@
         popup.setAttribute('role', modalRole);
         popup.setAttribute('aria-modal', 'true');
         popup.tabIndex = -1;
+        popup.style.setProperty('--nested-dialogs', '0');
         const title = popup.querySelector<HTMLElement>('[data-demo-part="Title"]');
         const description = popup.querySelector<HTMLElement>('[data-demo-part="Description"]');
         if (title) {
@@ -438,6 +463,23 @@
         if (!input.value) input.value = input.getAttribute('defaultvalue') ?? '';
       }
 
+      for (const root of article.querySelectorAll<HTMLElement>('[data-demo-component="Avatar.Root"]')) {
+        if (root.hasAttribute('data-demo-avatar-initialized')) continue;
+        const avatar = root.querySelector<HTMLImageElement>('[data-demo-component="Avatar.Image"]');
+        const fallback = root.querySelector<HTMLElement>('[data-demo-component="Avatar.Fallback"]');
+        if (avatar && fallback) {
+          const updateAvatar = () => {
+            const loaded = avatar.complete && avatar.naturalWidth > 0;
+            avatar.hidden = !loaded;
+            fallback.hidden = loaded;
+          };
+          avatar.addEventListener('load', updateAvatar);
+          avatar.addEventListener('error', updateAvatar);
+          updateAvatar();
+        }
+        root.setAttribute('data-demo-avatar-initialized', '');
+      }
+
       for (const button of article.querySelectorAll<HTMLButtonElement>('.DemoPreview button')) {
         if (button.textContent?.trim() || button.getAttribute('aria-label')) continue;
         const root = button.closest<HTMLElement>('[data-demo-part="Root"]');
@@ -538,6 +580,38 @@
         return;
       }
 
+      const plainButton = target?.closest<HTMLButtonElement>('button');
+      if (plainButton?.type === 'submit' && plainButton.closest('.DemoPreview')) {
+        event.preventDefault();
+        const dialogPopup = plainButton.closest<HTMLElement>('[data-demo-component="Dialog.Popup"]');
+        if (dialogPopup) closeOverlay(dialogPopup);
+        return;
+      }
+
+      if (plainButton?.textContent?.trim() === 'Open programmatically' && plainButton.closest('.DemoPreview')) {
+        const preview = plainButton.closest<HTMLElement>('.DemoPreview');
+        const popup = preview?.querySelector<HTMLElement>('[data-demo-component="AlertDialog.Popup"]');
+        const title = popup?.querySelector<HTMLElement>('[data-demo-part="Title"]');
+        if (popup && title) {
+          title.textContent = 'Delete project?';
+          setDemoOverlayOpen(plainButton, popup, true);
+        }
+        return;
+      }
+
+      if (plainButton?.textContent?.trim() === 'Discard') {
+        const confirmation = plainButton.closest<HTMLElement>('[data-demo-component="AlertDialog.Popup"][data-open]');
+        const preview = confirmation?.closest<HTMLElement>('.DemoPreview');
+        const parent = preview?.querySelector<HTMLElement>('[data-demo-component="Dialog.Popup"][data-open]');
+        if (confirmation && parent) {
+          closeOverlay(confirmation, false);
+          parent.toggleAttribute('data-nested-dialog-open', false);
+          parent.style.setProperty('--nested-dialogs', '0');
+          closeOverlay(parent);
+          return;
+        }
+      }
+
       const component = target?.closest<HTMLElement>('[data-demo-component]');
       if (component && article.contains(component)) {
         const name = component.dataset.demoComponent;
@@ -567,10 +641,22 @@
         }
         if (name?.endsWith('.Close')) {
           const root = component.closest<HTMLElement>('[data-demo-part="Root"]');
-          const trigger = root?.querySelector<HTMLElement>('[data-demo-part="Trigger"]');
-          const popup = root?.querySelector<HTMLElement>('[data-demo-part="Popup"]');
-          if (trigger && popup) setDemoOverlayOpen(trigger, popup, false);
-          trigger?.focus();
+          const popup = component.closest<HTMLElement>('[data-demo-part="Popup"]')
+            ?? root?.querySelector<HTMLElement>('[data-demo-part="Popup"]');
+          if (!popup) return;
+          if (name === 'Dialog.Close') {
+            const textarea = popup.querySelector<HTMLTextAreaElement>('textarea');
+            if (textarea?.value.trim() && openCloseConfirmation(popup, component)) return;
+          }
+          closeOverlay(popup);
+          if (name === 'AlertDialog.Close') {
+            const preview = popup.closest<HTMLElement>('.DemoPreview');
+            const parent = preview?.querySelector<HTMLElement>('[data-demo-component="Dialog.Popup"][data-open]');
+            if (parent) {
+              parent.toggleAttribute('data-nested-dialog-open', false);
+              parent.style.setProperty('--nested-dialogs', '0');
+            }
+          }
           return;
         }
         if (name === 'Checkbox.Root' || name === 'Switch.Root') {
@@ -619,6 +705,17 @@
       if (!popup) return;
 
       const opening = trigger.getAttribute('aria-expanded') !== 'true';
+      if (opening && popup.dataset.demoComponent === 'AlertDialog.Popup' && popup.className.includes('DetachedTriggersControlled')) {
+        const title = popup.querySelector<HTMLElement>('[data-demo-part="Title"]');
+        if (title) {
+          const labels: Record<string, string> = {
+            Discard: 'Discard draft?',
+            Delete: 'Delete project?',
+            'Sign out': 'Sign out?',
+          };
+          title.textContent = labels[trigger.textContent?.trim() ?? ''] ?? 'Delete project?';
+        }
+      }
       const demoRoot = trigger.closest<HTMLElement>('[data-demo-part="Root"]');
       if (opening && demoRoot && !demoRoot.hasAttribute('multiple')) {
         for (const siblingTrigger of demoRoot.querySelectorAll<HTMLElement>('[data-demo-part="Trigger"][aria-expanded="true"]')) {
@@ -696,16 +793,17 @@
       }
 
       if (event.key === 'Escape') {
-        const openOverlay = article.querySelector<HTMLElement>('[data-demo-component$=".Popup"]:not([hidden])[data-open]');
+        const openOverlay = [...article.querySelectorAll<HTMLElement>('[data-demo-component$=".Popup"]:not([hidden])[data-open]')].at(-1);
         if (openOverlay) {
-          const overlayRoot = openOverlay.closest<HTMLElement>('[data-demo-part="Root"]');
-          const overlayTrigger = overlayRoot?.querySelector<HTMLElement>('[data-demo-part="Trigger"][aria-expanded="true"]');
-          if (overlayTrigger) {
-            event.preventDefault();
-            setDemoOverlayOpen(overlayTrigger, openOverlay, false);
-            overlayTrigger.focus();
-            return;
+          event.preventDefault();
+          closeOverlay(openOverlay);
+          const preview = openOverlay.closest<HTMLElement>('.DemoPreview');
+          const parent = preview?.querySelector<HTMLElement>('[data-demo-component="Dialog.Popup"][data-open]');
+          if (parent && parent !== openOverlay) {
+            parent.toggleAttribute('data-nested-dialog-open', false);
+            parent.style.setProperty('--nested-dialogs', '0');
           }
+          return;
         }
         const root = (event.target as Element | null)?.closest<HTMLElement>('.DemoRoot');
         if (root) {
@@ -819,7 +917,7 @@
               <div class="SideNavHeading">Overview</div>
               <ul class="SideNavList">
                 {#each overview as item}
-                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('overview', item)} aria-current={data.path === `overview/${slug(item)}` ? 'page' : undefined}>{item}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('overview', item)} aria-current={data.path === `overview/${slug(item)}` ? 'page' : undefined} data-active={data.path === `overview/${slug(item)}` ? '' : undefined}>{item}</a></li>
                 {/each}
               </ul>
             </div>
@@ -827,7 +925,7 @@
               <div class="SideNavHeading">Handbook</div>
               <ul class="SideNavList">
                 {#each handbook as item}
-                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('handbook', item)} aria-current={data.path === `handbook/${slug(item)}` ? 'page' : undefined}>{item}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('handbook', item)} aria-current={data.path === `handbook/${slug(item)}` ? 'page' : undefined} data-active={data.path === `handbook/${slug(item)}` ? '' : undefined}>{item}</a></li>
                 {/each}
               </ul>
             </div>
@@ -835,7 +933,7 @@
               <div class="SideNavHeading">Components</div>
               <ul class="SideNavList">
                 {#each data.components as component}
-                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('components', component)} aria-current={data.path === `components/${slug(component)}` ? 'page' : undefined}>{component}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('components', component)} aria-current={data.path === `components/${slug(component)}` ? 'page' : undefined} data-active={data.path === `components/${slug(component)}` ? '' : undefined}>{component}</a></li>
                 {/each}
               </ul>
             </div>
@@ -843,7 +941,7 @@
               <div class="SideNavHeading">Utils</div>
               <ul class="SideNavList">
                 {#each utils as item}
-                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('utils', item)} aria-current={data.path === `utils/${slug(item)}` ? 'page' : undefined}>{item}</a></li>
+                  <li class="SideNavItem"><a class="SideNavLink" href={docsHref('utils', item)} aria-current={data.path === `utils/${slug(item)}` ? 'page' : undefined} data-active={data.path === `utils/${slug(item)}` ? '' : undefined}>{item}</a></li>
                 {/each}
               </ul>
             </div>

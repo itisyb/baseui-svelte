@@ -68,6 +68,8 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
   await page.goto('/svelte/components/accordion');
   await page.evaluate(() => document.fonts.ready);
 
+  await expect(page.locator('.SideNavLink[data-active]')).toHaveText('Accordion');
+
   const expected = [
     ['h1', { x: 336, y: 64, width: 768, height: 43.203125 }],
     ['.Subtitle', { x: 336, y: 111.203125, width: 768, height: 79 }],
@@ -194,6 +196,17 @@ test('matches the Select popup geometry and selection behavior', async ({ page }
   await expect(popup).toBeHidden();
 });
 
+test('keeps additional type details out of quick navigation', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await page.goto('/svelte/components/avatar');
+  await page.evaluate(() => document.fonts.ready);
+
+  const quickNav = page.getByRole('navigation', { name: 'On this page' });
+  await expect(quickNav.getByRole('link', { name: 'Additional types' })).toHaveCount(0);
+  await expect(quickNav.getByRole('link', { name: 'ImageLoadingStatus' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'ImageLoadingStatus' })).toBeVisible();
+});
+
 test('keeps modal overlays above the complete demo shell', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith('mobile'));
   await page.goto('/svelte/components/alert-dialog');
@@ -221,6 +234,55 @@ test('keeps modal overlays above the complete demo shell', async ({ page }, test
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
   await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+
+  const tweetTrigger = page.getByRole('button', { name: 'Tweet', exact: true });
+  await tweetTrigger.scrollIntoViewIfNeeded();
+  await tweetTrigger.click();
+  const tweetDialog = page.getByRole('dialog', { name: 'New tweet' });
+  await expect.poll(async () => tweetDialog.boundingBox()).toMatchObject({
+    x: 528,
+    y: 399,
+    width: 384,
+    height: 238,
+  });
+  await expect.poll(() => tweetDialog.evaluate((element) => getComputedStyle(element).translate)).toBe('-50% -50%');
+  await tweetDialog.getByRole('textbox').fill('hello');
+  await tweetDialog.getByRole('button', { name: 'Cancel' }).click();
+  const confirmation = page.getByRole('alertdialog', { name: 'Discard tweet?' });
+  await expect.poll(async () => confirmation.boundingBox()).toMatchObject({ x: 528, y: 453, width: 384, height: 130 });
+  await expect.poll(async () => {
+    const box = await tweetDialog.boundingBox();
+    return box && Object.fromEntries(Object.entries(box).map(([key, value]) => [key, Math.round(value * 10) / 10]));
+  }).toMatchObject({ x: 547.2, y: 430.9, width: 345.6, height: 214.2 });
+  await expect(tweetDialog).toHaveAttribute('data-nested-dialog-open', '');
+  await confirmation.getByRole('button', { name: 'Go back' }).click();
+  await expect(confirmation).toBeHidden();
+  await expect(tweetDialog).toBeVisible();
+  await tweetDialog.getByRole('button', { name: 'Tweet', exact: true }).click();
+  await expect(tweetDialog).toBeHidden();
+
+  const alertDemos = page.locator('.DemoRoot');
+  const detachedTrigger = alertDemos.nth(2).getByRole('button', { name: 'Discard draft', exact: true });
+  await detachedTrigger.click();
+  const detachedDialog = alertDemos.nth(2).getByRole('alertdialog', { name: 'Discard draft?' });
+  await expect(detachedDialog).toBeVisible();
+  await detachedDialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(detachedDialog).toBeHidden();
+  await expect(detachedTrigger).toBeFocused();
+
+  const controlled = alertDemos.nth(3);
+  for (const [button, title] of [
+    ['Discard', 'Discard draft?'],
+    ['Delete', 'Delete project?'],
+    ['Sign out', 'Sign out?'],
+    ['Open programmatically', 'Delete project?'],
+  ] as const) {
+    await controlled.getByRole('button', { name: button, exact: true }).click();
+    const controlledDialog = controlled.getByRole('alertdialog', { name: title });
+    await expect(controlledDialog).toBeVisible();
+    await controlledDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(controlledDialog).toBeHidden();
+  }
 
   await page.goto('/svelte/components/drawer');
   await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
@@ -287,6 +349,22 @@ test('matches floating overlay geometry and interaction behavior', async ({ page
   await expect.poll(async () => previewPopup.boundingBox()).toMatchObject({ x: 592, y: 300, width: 242 });
   await page.mouse.move(20, 20);
   await expect(previewPopup).toBeHidden();
+});
+
+test('renders the Avatar image and only the intended fallback', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await page.goto('/svelte/components/avatar', { waitUntil: 'networkidle' });
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+  const preview = page.locator('.DemoVariantPreview:not([hidden]) .DemoPreview').first();
+  const avatar = preview.locator('[data-demo-component="Avatar.Image"]');
+  await expect(avatar).toBeVisible();
+  await expect(avatar).toHaveAttribute('alt', '');
+  await expect.poll(() => avatar.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(async () => avatar.boundingBox()).toMatchObject({ x: 680, y: 263.203125, width: 32, height: 32 });
+  const fallback = preview.locator('[data-demo-component="Avatar.Root"]').nth(1);
+  await expect(fallback).toBeVisible();
+  await expect(fallback).toHaveText('LT');
+  await expect.poll(async () => fallback.boundingBox()).toMatchObject({ x: 728, y: 263.203125, width: 32, height: 32 });
 });
 
 test('walks every demo-toolbar interaction state', async ({ page, context }, testInfo) => {

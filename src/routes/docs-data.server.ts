@@ -196,6 +196,8 @@ function installationBlock(packageName: string) {
 function demoTag(name: string, attributes = '') {
   const part = name.split('.').at(-1) ?? name;
   if (name === 'ContextMenu.Trigger') return 'div';
+  if (name === 'Avatar.Root' || name === 'Avatar.Fallback') return 'span';
+  if (name === 'Avatar.Image') return 'img';
   if (part === 'Trigger' && /\bhref=/.test(attributes)) return 'a';
   if (/^(Checkbox\.Root|Switch\.Root|Radio\.Root|Toggle|Tabs\.Tab)$/.test(name)) return 'button';
   if (/Trigger|Button|Close|Increment|Decrement|Clear|Remove/.test(part)) return 'button';
@@ -221,6 +223,7 @@ function demoElementAttributes(name: string, attributes: string) {
   if (name === 'Radio.Root' && !/\brole=/.test(result)) result += ` role="radio" aria-checked="${initiallyChecked}"${initiallyChecked ? ' data-checked=""' : ' data-unchecked=""'}`;
   if (name === 'Toggle' && !/\baria-pressed=/.test(result)) result += ` aria-pressed="${initiallyPressed}"${initiallyPressed ? ' data-pressed=""' : ''}`;
   if (name === 'Tabs.Tab' && !/\brole=/.test(result)) result += ' role="tab" aria-selected="false"';
+  if (name === 'Avatar.Image' && !/\balt=/.test(result)) result += ' alt=""';
   return result;
 }
 
@@ -324,7 +327,28 @@ function jsxPreview(source: string, cssModulePrefix = '', sourceMode = false) {
       if (attributeName === 'tabIndex') attributeName = 'tabindex';
       if (attributeName === 'strokeLinecap') attributeName = 'stroke-linecap';
       if (attributeName === 'strokeLinejoin') attributeName = 'stroke-linejoin';
-      if (/^(on[A-Z]|style$|ref$|key$|render$)/.test(attributeName)) continue;
+      if (/^(on[A-Z]|ref$|key$|render$)/.test(attributeName)) continue;
+      if (
+        attributeName === 'style'
+        && property.initializer
+        && ts.isJsxExpression(property.initializer)
+        && property.initializer.expression
+        && ts.isObjectLiteralExpression(property.initializer.expression)
+      ) {
+        const declarations = property.initializer.expression.properties
+          .filter(ts.isPropertyAssignment)
+          .map((declaration) => {
+            const cssProperty = declaration.name.getText(sourceFile)
+              .replace(/^['"]|['"]$/g, '')
+              .replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+            const cssValue = expressionValue(declaration.initializer);
+            return cssValue === null ? '' : `${cssProperty}: ${cssValue}`;
+          })
+          .filter(Boolean)
+          .join('; ');
+        if (declarations) result.push(`style="${escapeHtml(declarations)}"`);
+        continue;
+      }
       let value: string | null;
       if (!property.initializer) value = '';
       else if (ts.isStringLiteral(property.initializer)) value = property.initializer.text;
@@ -835,11 +859,19 @@ function addHeadingIds(html: string) {
 
 function getHeadings(html: string) {
   const headings: DocsHeading[] = [];
+  let insideAdditionalTypes = false;
   for (const match of html.matchAll(/<h([2-3]) id="([^"]+)">([\s\S]*?)<\/h\1>/g)) {
+    const depth = Number(match[1]);
+    const text = match[3].replace(/<[^>]+>/g, '').replaceAll('&nbsp;', '\u00a0');
+    if (depth === 2) {
+      insideAdditionalTypes = text.toLowerCase() === 'additional types';
+      if (insideAdditionalTypes) continue;
+    } else if (insideAdditionalTypes) continue;
+
     headings.push({
-      depth: Number(match[1]),
+      depth,
       id: match[2],
-      text: match[3].replace(/<[^>]+>/g, '').replaceAll('&nbsp;', '\u00a0'),
+      text,
     });
   }
   return headings;
