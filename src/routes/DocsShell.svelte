@@ -59,10 +59,67 @@
   }
 
   function enhanceDemos(article: HTMLElement) {
+    function activateInstallationTab(tab: HTMLButtonElement) {
+      const block = tab.closest<HTMLElement>('[data-installation-block]');
+      if (!block) return;
+      const value = tab.dataset.value;
+      for (const candidate of block.querySelectorAll<HTMLButtonElement>('[role="tab"]')) {
+        const active = candidate === tab;
+        candidate.toggleAttribute('data-active', active);
+        candidate.setAttribute('aria-selected', String(active));
+        candidate.tabIndex = active ? 0 : -1;
+      }
+      for (const panel of block.querySelectorAll<HTMLElement>('[role="tabpanel"]')) {
+        panel.hidden = panel.dataset.value !== value;
+      }
+    }
+
+    function setDemoPanelOpen(
+      trigger: HTMLElement,
+      popup: HTMLElement,
+      group: HTMLElement | null,
+      open: boolean,
+    ) {
+      if (open) {
+        popup.removeAttribute('data-ending-style');
+        popup.setAttribute('data-starting-style', '');
+        popup.hidden = false;
+      }
+      popup.style.setProperty('--accordion-panel-height', `${popup.scrollHeight}px`);
+      popup.style.setProperty('--accordion-panel-width', `${popup.scrollWidth}px`);
+      popup.toggleAttribute('data-open', open);
+      popup.toggleAttribute('data-closed', !open);
+      trigger.toggleAttribute('data-panel-open', open);
+      trigger.setAttribute('aria-expanded', String(open));
+      group?.toggleAttribute('data-open', open);
+
+      if (open) {
+        requestAnimationFrame(() => requestAnimationFrame(() => popup.removeAttribute('data-starting-style')));
+        return;
+      }
+
+      popup.removeAttribute('data-starting-style');
+      void popup.offsetHeight;
+      popup.setAttribute('data-ending-style', '');
+      const finish = () => {
+        if (trigger.getAttribute('aria-expanded') === 'true') return;
+        popup.hidden = true;
+        popup.removeAttribute('data-ending-style');
+      };
+      popup.addEventListener('transitionend', finish, { once: true });
+      window.setTimeout(finish, 200);
+    }
+
     function click(event: MouseEvent) {
+      const installationTab = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-installation-block] [role="tab"]');
+      if (installationTab && article.contains(installationTab)) {
+        activateInstallationTab(installationTab);
+        return;
+      }
+
       const copyCode = (event.target as Element | null)?.closest<HTMLButtonElement>('[aria-label="Copy code"]');
       if (copyCode && article.contains(copyCode)) {
-        const code = copyCode.closest('.CodeFrame')?.querySelector('code')?.textContent ?? '';
+        const code = copyCode.closest('.CodeFrame, .CodeBlockRoot')?.querySelector('code')?.textContent ?? '';
         void navigator.clipboard?.writeText(code);
         return;
       }
@@ -78,21 +135,35 @@
       const trigger = (event.target as Element | null)?.closest<HTMLElement>('[data-demo-part="Trigger"]');
       if (!trigger || !article.contains(trigger)) return;
 
-      const group = trigger.closest('[data-demo-part="Item"]') ?? trigger.parentElement;
+      const group = trigger.closest<HTMLElement>('[data-demo-part="Item"]') ?? trigger.parentElement;
       const localPanel = group?.querySelector<HTMLElement>('[data-demo-part="Panel"], [data-demo-part="Content"]');
       const preview = trigger.closest('.DemoPreview');
       const popup = localPanel ?? preview?.querySelector<HTMLElement>('[data-demo-part="Popup"], [data-demo-part="Positioner"]');
       if (!popup) return;
 
-      const open = popup.hidden;
-      popup.hidden = !open;
-      trigger.toggleAttribute('data-panel-open', open);
-      trigger.setAttribute('aria-expanded', String(open));
-      group?.toggleAttribute('data-open', open);
+      setDemoPanelOpen(trigger, popup, group, popup.hidden);
+    }
+
+    function keydown(event: KeyboardEvent) {
+      const tab = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-installation-block] [role="tab"]');
+      if (!tab || !article.contains(tab) || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const tabs = [...(tab.closest('[role="tablist"]')?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [])];
+      const index = tabs.indexOf(tab);
+      const next = event.key === 'Home' ? tabs[0]
+        : event.key === 'End' ? tabs.at(-1)
+        : tabs[(index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+      if (!next) return;
+      event.preventDefault();
+      activateInstallationTab(next);
+      next.focus();
     }
 
     article.addEventListener('click', click);
-    return () => article.removeEventListener('click', click);
+    article.addEventListener('keydown', keydown);
+    return () => {
+      article.removeEventListener('click', click);
+      article.removeEventListener('keydown', keydown);
+    };
   }
 
 </script>

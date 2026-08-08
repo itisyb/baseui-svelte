@@ -79,9 +79,27 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
   const firstTrigger = page.locator('.DemoPreview [data-demo-part="Trigger"]').first();
   const firstPanel = page.locator('.DemoPreview [data-demo-part="Panel"]').first();
   await expect(firstPanel).toBeHidden();
-  await firstTrigger.click();
+  const animationHeights = await page.evaluate(async () => {
+    const trigger = document.querySelector<HTMLElement>('.DemoPreview [data-demo-part="Trigger"]')!;
+    const panel = document.querySelector<HTMLElement>('.DemoPreview [data-demo-part="Panel"]')!;
+    const values: number[] = [];
+    trigger.click();
+    for (let index = 0; index < 7; index += 1) {
+      await new Promise(requestAnimationFrame);
+      values.push(panel.getBoundingClientRect().height);
+    }
+    return values;
+  });
+  expect(animationHeights[0]).toBe(0);
+  expect(animationHeights.some((height) => height > 0 && height < animationHeights.at(-1)!)).toBe(true);
   await expect(firstPanel).toBeVisible();
   await expect(firstTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(firstPanel).toHaveCSS('transition-duration', '0.15s');
+
+  const reference = page.locator('.ReferenceAccordionRoot').first();
+  await expect(reference).toBeVisible();
+  await expect.poll(async () => reference.boundingBox()).toMatchObject({ width: 768, height: 534 });
+  await expect(reference.locator('.AccordionItem')).toHaveCount(12);
 
   await page.reload();
   await expect(page).toHaveScreenshot('accordion-detail.png', {
@@ -89,6 +107,31 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
     caret: 'hide',
     maxDiffPixels: 0,
   });
+});
+
+test('renders Quick start without MDX or TSX artifacts', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await page.goto('/svelte/overview/quick-start');
+  await page.evaluate(() => document.fonts.ready);
+
+  const article = page.locator('article');
+  await expect(article).not.toContainText('InstallationBlock');
+  await expect(article).not.toContainText('tsx');
+  await expect(article).not.toContainText('className');
+
+  const installation = page.locator('.InstallationBlock');
+  await expect(installation).toBeVisible();
+  await expect(installation).toContainText('Installation commandpnpmnpmyarnbun');
+  await expect(installation).toContainText('npm i @itisyb/baseui-svelte');
+  await expect.poll(async () => installation.boundingBox()).toMatchObject({
+    x: 336,
+    y: 300.203125,
+    width: 768,
+    height: 74,
+  });
+
+  await installation.getByRole('tab', { name: 'pnpm', exact: true }).click();
+  await expect(installation).toContainText('pnpm add @itisyb/baseui-svelte');
 });
 
 test('opens and filters the exact Search or Navigation surface', async ({ page }, testInfo) => {

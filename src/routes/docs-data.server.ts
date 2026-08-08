@@ -1,7 +1,11 @@
 import { marked } from 'marked';
+import { common, createStarryNight } from '@wooorm/starry-night';
+import sourceSvelte from '@wooorm/starry-night/source.svelte';
+import { toHtml } from 'hast-util-to-html';
 
 export const UPSTREAM_COMMIT = '7ffe6342b09eea1721892e1e274419de17f02873';
 const DOCS_SOURCE_ROOT = `https://raw.githubusercontent.com/mui/base-ui/${UPSTREAM_COMMIT}/docs/src/app/(docs)/react`;
+const highlighter = createStarryNight([...common, sourceSvelte]);
 
 export const components = [
   'Accordion',
@@ -145,6 +149,30 @@ function unescapeHtml(value: string) {
     .replaceAll('&amp;', '&');
 }
 
+async function highlightCode(code: string, language: string) {
+  const starryNight = await highlighter;
+  const scope = starryNight.flagToScope(language === 'svelte' ? 'svelte' : language);
+  if (!scope) return escapeHtml(code);
+  return toHtml(starryNight.highlight(code, scope));
+}
+
+function installationBlock(packageName: string) {
+  const managers = [
+    { value: 'pnpm', command: 'add' },
+    { value: 'npm', command: 'i' },
+    { value: 'yarn', command: 'add' },
+    { value: 'bun', command: 'add' },
+  ] as const;
+  const selected = 'npm';
+  const tabs = managers.map(({ value }) =>
+    `<button class="InstallationBlockTab" type="button" role="tab" id="installation-tab-${value}" aria-controls="installation-panel-${value}" aria-selected="${value === selected}" tabindex="${value === selected ? '0' : '-1'}" data-value="${value}"${value === selected ? ' data-active=""' : ''}><span>${value}</span></button>`,
+  ).join('');
+  const panels = managers.map(({ value, command }) =>
+    `<div class="InstallationBlockTabPanel" role="tabpanel" id="installation-panel-${value}" aria-labelledby="installation-tab-${value}" data-value="${value}"${value === selected ? '' : ' hidden'}><div class="CodeBlockViewport"><pre class="CodeBlockPreInline CodeBlockPre"><code class="language-bash"><span class="frame"><span class="line"><span class="pl-en">${value}</span> <span class="pl-smi">${command}</span> <span class="pl-s">${escapeHtml(packageName)}</span></span></span></code></pre></div></div>`,
+  ).join('');
+  return `<div class="InstallationBlock" data-installation-block=""><div class="CodeBlockRoot" role="figure" aria-labelledby="installation-title"><div class="CodeBlockPanel"><span id="installation-title" class="VisuallyHidden">Installation command</span><div class="InstallationBlockTabsList" role="tablist" aria-label="Package manager">${tabs}</div><button class="CodeBlockCopyButton" type="button" aria-label="Copy code"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor"/><path d="M10.5 5.5V3.5A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h2" stroke="currentColor"/></svg></button></div>${panels}</div></div>`;
+}
+
 function demoTag(name: string) {
   const part = name.replace(/^Demo[A-Za-z0-9]+/, '') || 'Root';
   if (/Trigger|Button|Close|Increment|Decrement|Clear|Remove|Arrow/.test(part)) return 'button';
@@ -157,7 +185,9 @@ function demoTag(name: string) {
 }
 
 function jsxPreview(source: string) {
-  const returned = source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1] ?? '';
+  const returned = source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1]
+    ?? source.match(/return\s+([^;]+);/m)?.[1]
+    ?? '';
   if (!returned) return '';
 
   let html = returned
@@ -170,7 +200,8 @@ function jsxPreview(source: string) {
     .replace(/\{[^{}]*\}/g, '')
     .replace(/<([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)?)([^>]*)\/>/g, (_match, name: string, attributes: string) => {
       if (/Icon$/.test(name)) {
-        return '<svg class="DemoIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path d="M1.5 8h13M8 14.5v-13" /></svg>';
+        const sourceClass = attributes.match(/\bclass="([^"]+)"/)?.[1] ?? '';
+        return `<svg class="DemoIcon${sourceClass ? ` ${sourceClass}` : ''}" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path d="M1.5 8h13M8 14.5v-13" /></svg>`;
       }
       const tag = demoTag(name);
       return `<${tag}${attributes} data-demo-part="${name.split('.').at(-1)}"></${tag}>`;
@@ -195,17 +226,31 @@ function jsxPreview(source: string) {
 }
 
 function translateDemoSource(source: string) {
-  const body = source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1]?.trim() ?? source;
-  return source
-    .slice(0, source.indexOf('export default function'))
-    .replace(/^import \* as React from 'react';\s*$/m, '')
-    .replace(/^import styles from '[^']+';\s*$/m, '')
-    .replace(/import \{ ([A-Za-z0-9]+) \} from '@base-ui\/react\/([^']+)'/g, "import * as $1 from '@itisyb/baseui-svelte/$2'")
-    .trim()
-    .concat('\n\n', body)
+  const body = source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1]?.trim()
+    ?? source.match(/return\s+([^;]+);/m)?.[1]?.trim()
+    ?? '';
+  const namespaceComponents = new Set([
+    'Accordion', 'AlertDialog', 'Autocomplete', 'Checkbox', 'CheckboxGroup', 'Collapsible',
+    'Combobox', 'ContextMenu', 'Dialog', 'Drawer', 'Field', 'Fieldset', 'Form', 'Menu',
+    'Menubar', 'NavigationMenu', 'NumberField', 'OTPField', 'Popover', 'PreviewCard',
+    'RadioGroup', 'ScrollArea', 'Select', 'Slider', 'Tabs', 'Toast', 'ToggleGroup',
+    'Toolbar', 'Tooltip',
+  ]);
+  const imports = [...source.matchAll(/import\s+\{\s*([A-Za-z0-9]+)\s*\}\s+from\s+'@base-ui\/react\/([^']+)'/g)]
+    .map((match) => namespaceComponents.has(match[1])
+      ? `import * as ${match[1]} from '@itisyb/baseui-svelte/${match[2]}';`
+      : `import { ${match[1]} } from '@itisyb/baseui-svelte/${match[2]}';`)
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .join('\n');
+
+  return imports
+    .concat(imports && body ? '\n\n' : '', body)
     .replaceAll('className=', 'class=')
     .replace(/\{styles\.([A-Za-z0-9_]+)\}/g, '"$1"')
     .replaceAll('React components', 'Svelte components')
+    .replace(/^\s*import \* as React from 'react';\s*$/gm, '')
+    .replaceAll('<React.Fragment>', '<svelte:fragment>')
+    .replaceAll('</React.Fragment>', '</svelte:fragment>')
     .replaceAll('"/react/', '"/svelte/')
     .replaceAll("'/react/", "'/svelte/")
     .replace(/\/>/g, ' />');
@@ -244,21 +289,28 @@ async function renderDemo(fetcher: typeof fetch, pagePath: string, importPath: s
       .replaceAll("'/react/", "'/svelte/"),
   );
   const translated = translateDemoSource(source);
+  const highlighted = await highlightCode(translated, 'svelte');
   const html = `<div class="DemoRoot" data-demo="${name}">
 <style>${css}</style>
 <div class="DemoPreview">${preview}</div>
 <div class="DemoToolbar"><span>index.svelte</span>${css ? '<span>index.css</span>' : ''}<span class="DemoToolbarSpacer"></span><span>${variant}</span><span>StackBlitz ↗</span><span aria-hidden="true">⋮</span></div>
-<pre class="DemoCode"><code class="language-svelte">${escapeHtml(translated)}</code></pre>
+<pre class="DemoCode"><code class="language-svelte">${highlighted}</code></pre>
 <button class="DemoShowCode" type="button">Show code</button>
 </div>`;
   return `\n<!--DEMO:${encodeURIComponent(html)}-->\n`;
 }
 
-function protectCodeFences(markdown: string) {
-  return markdown.replace(/```([A-Za-z0-9_-]+)?(?:\s+title="([^"]+)")?\s*\n([\s\S]*?)```/g, (_match, language = '', title = '', code: string) => {
-    const html = `<figure class="CodeFrame${title ? '' : ' CodeFrameUntitled'}">${title ? `<figcaption>${escapeHtml(title)}<button type="button" aria-label="Copy code">□</button></figcaption>` : ''}<pre><code class="language-${escapeHtml(language)}">${escapeHtml(code.replace(/\n$/, ''))}</code></pre></figure>`;
-    return `\n<!--RAW:${encodeURIComponent(html)}-->\n`;
-  });
+async function protectCodeFences(markdown: string) {
+  const pattern = /```([A-Za-z0-9_-]+)?(?:\s+title="([^"]+)")?\s*\n([\s\S]*?)```/g;
+  const matches = [...markdown.matchAll(pattern)];
+  for (const match of matches) {
+    const [source, language = '', title = '', rawCode] = match;
+    const code = rawCode.replace(/\n$/, '');
+    const highlighted = await highlightCode(code, language);
+    const html = `<figure class="CodeFrame${title ? '' : ' CodeFrameUntitled'}">${title ? `<figcaption>${escapeHtml(title)}<button type="button" aria-label="Copy code"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor"/><path d="M10.5 5.5V3.5A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h2" stroke="currentColor"/></svg></button></figcaption>` : ''}<pre><code class="language-${escapeHtml(language)}">${highlighted}</code></pre></figure>`;
+    markdown = markdown.replace(source, `\n<!--RAW:${encodeURIComponent(html)}-->\n`);
+  }
+  return markdown;
 }
 
 function markdownForHumans(markdown: string) {
@@ -294,6 +346,10 @@ async function expandMdx(fetcher: typeof fetch, pagePath: string, markdown: stri
   }));
 
   return markdown
+    .replace(/^<InstallationBlock\b[^>]*\bpackage="([^"]+)"[^>]*\/>\s*$/gm, (_match, packageName: string) => {
+      const html = installationBlock(packageName.replace('@base-ui/react', '@itisyb/baseui-svelte'));
+      return `\n<!--RAW:${encodeURIComponent(html)}-->\n`;
+    })
     .replace(/^<((?:Demo)[A-Za-z0-9]+)\s*\/>\s*$/gm, (_match, name: string) => demos.get(name) ?? '')
     .replace(/^<Types[A-Za-z0-9]+Additional\s+showAdditionalTypes=\{\[([^\]]+)\]\}\s*\/>\s*$/gm, (_match, names: string) => {
       const sections = [...names.matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]);
@@ -317,10 +373,36 @@ async function expandMdx(fetcher: typeof fetch, pagePath: string, markdown: stri
     });
 }
 
+function stripTopLevelImports(markdown: string) {
+  const lines = markdown.split('\n');
+  const kept: string[] = [];
+  let fence: string | null = null;
+  let importDeclaration = false;
+
+  for (const line of lines) {
+    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+    if (fenceMatch) {
+      fence = fence === null ? fenceMatch[1][0] : fence === fenceMatch[1][0] ? null : fence;
+      kept.push(line);
+      continue;
+    }
+    if (fence !== null) {
+      kept.push(line);
+      continue;
+    }
+    if (!importDeclaration && /^\s*import\b/.test(line)) importDeclaration = true;
+    if (importDeclaration) {
+      if (/;\s*$/.test(line)) importDeclaration = false;
+      continue;
+    }
+    kept.push(line);
+  }
+  return kept.join('\n');
+}
+
 function stripMdx(markdown: string) {
-  return markdown
+  return stripTopLevelImports(markdown)
     .replace(/\nexport const metadata = \{[\s\S]*$/m, '')
-    .replace(/^import .* from '\.\/.*';\s*$/gm, '')
     .replace(/<Meta\b[\s\S]*?\/>/g, '')
     .replace(/<Subtitle>([\s\S]*?)<\/Subtitle>/g, '<div class="Subtitle"><p>$1</p></div>')
     .replace(/<Aside[^>]*>/g, '<aside>')
@@ -338,6 +420,8 @@ function translateSvelte(markdown: string, pagePath: string) {
     .replaceAll('React application', 'Svelte application')
     .replaceAll('https://base-ui.com/react/', '/svelte/')
     .replace(/```(?:jsx|tsx)/g, '```svelte')
+    .replaceAll('.tsx', '.svelte')
+    .replaceAll('.jsx', '.svelte')
     .replace(/import \{ ([A-Za-z0-9]+) \} from '@itisyb\/baseui-svelte\/([^']+)';/g, "import * as $1 from '@itisyb/baseui-svelte/$2';")
     .replaceAll('className', 'class')
     .replaceAll('React.CSSProperties', 'string')
@@ -384,8 +468,80 @@ function rewriteRenderedLinks(html: string) {
     .replace(/href="\/react\/([^"]*)"/g, 'href="/svelte/$1"');
 }
 
+function tableCells(row: string) {
+  return [...row.matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/g)].map((match) => match[1].trim());
+}
+
+function plainText(html: string) {
+  return unescapeHtml(html.replace(/<[^>]+>/g, '').replaceAll('&#xA;', ' ')).trim();
+}
+
+function referenceIcon() {
+  return '<span class="ReferenceIconWrap"><svg class="AccordionIcon ReferenceIcon" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1 3.5L5 7.5L9 3.5" stroke="currentColor" /></svg></span>';
+}
+
+function referenceType(value: string) {
+  const text = plainText(value);
+  let display = text;
+  if (text.includes('=>')) {
+    const base = text.match(/^([^|]+)\s*\|/)?.[1]?.trim();
+    display = base && !base.startsWith('((') ? `${base} | function` : 'function';
+  }
+  const parts = display.split(/(\s*\|\s*)/);
+  return `<code>${parts.map((part) => {
+    const token = part.trim();
+    if (token === '|') return ' <span class="ReferenceTypeOperator">|</span> ';
+    const className = token === 'boolean' || token === 'number' ? 'ReferenceTypePrimitive'
+      : token === 'function' ? 'ReferenceTypeFunction'
+      : /^['"].*['"]$/.test(token) ? 'ReferenceTypeString'
+      : 'ReferenceTypeIdentifier';
+    return `<span class="${className}">${escapeHtml(token)}</span>`;
+  }).join('')}</code>`;
+}
+
+function referenceDefault(value: string) {
+  const text = plainText(value);
+  const className = /^(?:true|false|\d+(?:\.\d+)?)$/.test(text) ? 'ReferenceTypePrimitive'
+    : /^['"].*['"]$/.test(text) ? 'ReferenceTypeString'
+    : '';
+  return className ? `<code><span class="${className}">${escapeHtml(text)}</span></code>` : value;
+}
+
+function referencePropsTable(table: string, label: string) {
+  const body = table.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? '';
+  const rows = [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => tableCells(match[1]));
+  const items = rows.map((cells) => {
+    const [name = '', type = '', defaultValue = '', description = ''] = cells;
+    const shortType = referenceType(type);
+    const shortDefault = referenceDefault(defaultValue);
+    const accessibleName = `${plainText(name)}, type: ${plainText(shortType)}, default: ${plainText(shortDefault)}`;
+    return `<details class="AccordionItem"><summary class="AccordionTrigger ReferenceTrigger" aria-label="${escapeHtml(accessibleName)}"><span class="AccordionScrollable ReferenceNameCell"><span class="AccordionScrollableInner">${name}</span></span><span class="AccordionScrollable ReferenceTypeCell"><span class="AccordionScrollableInner">${shortType}</span></span><span class="AccordionScrollable ReferenceDefaultCell"><span class="AccordionScrollableInner">${shortDefault}</span></span>${referenceIcon()}</summary><div class="AccordionPanel"><div class="AccordionContent"><dl class="ReferenceContent" aria-label="Info"><div><dt>Name</dt><dd>${name}</dd></div><div><dt>Description</dt><dd>${description}</dd></div><div><dt>Type</dt><dd>${type}</dd></div><div><dt>Default</dt><dd>${defaultValue}</dd></div></dl></div></div></details>`;
+  }).join('');
+  return `<section class="AccordionRoot ReferenceAccordionRoot ReferenceBlockSpaced" aria-label="${escapeHtml(label)}" style="--rows:${rows.length}"><div class="AccordionHeaderRow ReferenceHeaderRow" aria-hidden="true"><div class="AccordionHeaderCell"><span class="AccordionHeaderCellInner">Prop</span></div><div class="AccordionHeaderCell ReferenceHeaderTypeCell"><span class="AccordionHeaderCellInner">Type</span></div><div class="AccordionHeaderCell ReferenceHeaderDefaultCell"><span class="AccordionHeaderCellInner">Default</span></div><div class="AccordionHeaderCell ReferenceHeaderIconCell"></div></div>${items}</section>`;
+}
+
+function referenceDataTable(table: string, label: string) {
+  const headerRow = table.match(/<thead>[\s\S]*?<tr>([\s\S]*?)<\/tr>[\s\S]*?<\/thead>/)?.[1] ?? '';
+  const headers = tableCells(headerRow);
+  const body = table.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? '';
+  const rows = [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => tableCells(match[1]));
+  const firstHeader = headers[0] ?? (label.includes('CSS') ? 'CSS Variable' : 'Attribute');
+  const renderedRows = rows.map(([name = '', _type = '', description = '']) =>
+    `<tr class="TableRow"><th class="TableCell" scope="row"><div class="TableCellInner ReferenceWideNameColumn">${name}</div></th><td class="TableCell" colspan="2"><div class="TableCellInner">${description}</div></td></tr>`,
+  ).join('');
+  return `<div class="TableRoot ReferenceTableRoot ReferenceBlockSpaced" style="--rows:${rows.length}"><table class="TableRootTable" aria-label="${escapeHtml(label)}"><thead class="TableHead"><tr class="TableRow"><th class="TableColumnHeader ReferenceWideNameColumn" scope="col"><div class="TableCellInner">${firstHeader}</div></th><th class="TableColumnHeader ReferenceWideDescriptionColumn" scope="col"><div class="TableCellInner">Description</div></th><th class="TableColumnHeader ReferenceHeaderIconCell" aria-hidden="true"><span class="VisuallyHidden">-</span></th></tr></thead><tbody class="TableBody">${renderedRows}</tbody></table></div>`;
+}
+
+function enhanceReferenceTables(html: string) {
+  return html.replace(/<p><strong>([^<]+):<\/strong><\/p>\s*(<table>[\s\S]*?<\/table>)/g, (_match, label: string, table: string) => {
+    if (/\bProps$/.test(label)) return referencePropsTable(table, label);
+    if (/\b(?:Data Attributes|CSS Variables)$/.test(label)) return referenceDataTable(table, label);
+    return table;
+  });
+}
+
 async function renderMarkdown(markdown: string) {
-  markdown = protectCodeFences(markdown);
+  markdown = await protectCodeFences(markdown);
   const chunks = markdown.split(/<details>|<\/details>/);
   const rendered: string[] = [];
 
@@ -399,9 +555,9 @@ async function renderMarkdown(markdown: string) {
       rendered.push(await marked.parse(chunk));
     }
   }
-  const html = rendered.join('')
+  const html = enhanceReferenceTables(rendered.join('')
     .replace(/<!--DEMO:([\s\S]*?)-->/g, (_match, encoded: string) => decodeURIComponent(encoded))
-    .replace(/<!--RAW:([\s\S]*?)-->/g, (_match, encoded: string) => decodeURIComponent(encoded));
+    .replace(/<!--RAW:([\s\S]*?)-->/g, (_match, encoded: string) => decodeURIComponent(encoded)));
   return addHeadingIds(html);
 }
 
