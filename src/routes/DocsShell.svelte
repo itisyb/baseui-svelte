@@ -59,6 +59,42 @@
   }
 
   function enhanceDemos(article: HTMLElement) {
+    const copyTimers = new Map<HTMLButtonElement, number>();
+    const hoverTimers = new Map<HTMLElement, number>();
+    const originalCopyIcons = new WeakMap<HTMLButtonElement, string>();
+    const copiedIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="m2.5 8.5 4 4 7-9"></path></svg>';
+    const copyStatus = document.createElement('span');
+    copyStatus.className = 'VisuallyHidden';
+    copyStatus.setAttribute('role', 'status');
+    copyStatus.setAttribute('aria-live', 'polite');
+    copyStatus.dataset.copyStatus = '';
+    article.append(copyStatus);
+
+    async function copyText(text: string, button?: HTMLButtonElement, statusText?: string) {
+      if (!navigator.clipboard) return;
+      const copying = navigator.clipboard.writeText(text);
+      if (button) {
+        const iconContainer = button.querySelector<HTMLElement>('.CodeBlockCopyIcon, .DemoCopySourceIcon') ?? button;
+        if (!originalCopyIcons.has(button)) originalCopyIcons.set(button, iconContainer.innerHTML);
+        iconContainer.innerHTML = copiedIcon;
+        button.toggleAttribute('data-copied', true);
+        const existing = copyTimers.get(button);
+        if (existing) window.clearTimeout(existing);
+        copyTimers.set(button, window.setTimeout(() => {
+          iconContainer.innerHTML = originalCopyIcons.get(button) ?? '';
+          button.toggleAttribute('data-copied', false);
+          copyTimers.delete(button);
+        }, 2000));
+      }
+      try {
+        await copying;
+        copyStatus.textContent = '';
+        if (statusText) requestAnimationFrame(() => { copyStatus.textContent = statusText; });
+      } catch {
+        // The visual response is immediate; unsupported clipboard access is inert.
+      }
+    }
+
     function activateInstallationTab(tab: HTMLButtonElement) {
       const block = tab.closest<HTMLElement>('[data-installation-block]');
       if (!block) return;
@@ -110,7 +146,7 @@
       window.setTimeout(finish, 200);
     }
 
-    function setDemoOverlayOpen(trigger: HTMLElement, popup: HTMLElement, open: boolean) {
+    function setDemoOverlayOpen(trigger: HTMLElement, popup: HTMLElement, open: boolean, moveFocus = true) {
       const componentRoot = trigger.closest<HTMLElement>('[data-demo-part="Root"]');
       const boundary = componentRoot ?? trigger.closest<HTMLElement>('.DemoPreview');
       const layers: HTMLElement[] = [];
@@ -121,30 +157,61 @@
       }
       const backdrop = boundary?.querySelector<HTMLElement>('[data-demo-part="Backdrop"]');
       if (open) {
-        for (const layer of layers.reverse()) layer.hidden = false;
+        popup.hidden = false;
+        for (const layer of layers.reverse()) {
+          layer.hidden = false;
+          if (layer.dataset.demoPart === 'Portal') layer.toggleAttribute('data-demo-overlay-layer', true);
+        }
         if (backdrop) {
           backdrop.hidden = false;
           backdrop.toggleAttribute('data-open', true);
         }
         const positioner = popup.closest<HTMLElement>('[data-demo-part="Positioner"]');
         if (positioner) {
-          const rect = trigger.getBoundingClientRect();
+          const popupComponent = popup.dataset.demoComponent ?? '';
+          const anchor = /^(Combobox|Autocomplete)\./.test(popupComponent)
+            ? componentRoot?.querySelector<HTMLElement>('[data-demo-part="InputGroup"], [data-demo-part="Input"]') ?? trigger
+            : trigger;
+          const rect = anchor.getBoundingClientRect();
           const sideOffset = Number(positioner.getAttribute('sideoffset') ?? 4);
           positioner.style.setProperty('--anchor-width', `${rect.width}px`);
           positioner.style.setProperty('--available-height', `${Math.max(160, window.innerHeight - rect.bottom - 24)}px`);
           positioner.style.position = 'fixed';
           const selectPopup = popup.dataset.demoComponent === 'Select.Popup';
-          positioner.style.left = `${selectPopup ? rect.left - 26 : rect.left}px`;
-          positioner.style.top = `${selectPopup ? rect.top - 4 : rect.bottom + sideOffset}px`;
+          const startAligned = positioner.getAttribute('align') === 'start'
+            || /^(Combobox|Autocomplete)\./.test(popupComponent);
+          const left = selectPopup ? rect.left - 26
+            : startAligned ? rect.left
+            : rect.left + rect.width / 2 - popup.getBoundingClientRect().width / 2;
+          positioner.style.left = `${Math.round(left)}px`;
+          positioner.style.top = `${selectPopup ? rect.top - 6 : Math.round(rect.bottom + sideOffset)}px`;
           positioner.style.zIndex = '30';
           if (selectPopup) {
             popup.setAttribute('data-side', 'none');
             popup.setAttribute('data-align', 'center');
             popup.querySelector<HTMLElement>('[data-demo-part="Item"]')?.setAttribute('data-highlighted', '');
+          } else {
+            const align = startAligned ? 'start' : 'center';
+            popup.setAttribute('data-side', 'bottom');
+            popup.setAttribute('data-align', align);
+            const arrow = popup.querySelector<HTMLElement>('[data-demo-part="Arrow"]');
+            if (arrow) {
+              arrow.setAttribute('data-side', 'bottom');
+              arrow.setAttribute('data-align', align);
+              arrow.style.position = 'absolute';
+              arrow.style.left = `${popup.getBoundingClientRect().width / 2 - arrow.getBoundingClientRect().width / 2}px`;
+            }
           }
         }
       }
       setDemoPanelOpen(trigger, popup, componentRoot, open);
+      const modal = /^(AlertDialog|Dialog|Drawer)\.Popup$/.test(popup.dataset.demoComponent ?? '');
+      if (open) {
+        if (modal) document.body.style.overflow = 'hidden';
+        if (moveFocus) popup.focus();
+      } else if (modal) {
+        document.body.style.overflow = '';
+      }
       if (!open) {
         backdrop?.toggleAttribute('data-open', false);
         window.setTimeout(() => {
@@ -185,7 +252,12 @@
         tabList.hidden = tabList.dataset.demoVariantTabs !== variant;
       }
       for (const candidate of root.querySelectorAll<HTMLElement>('[data-demo-variant-option]')) {
-        candidate.setAttribute('aria-selected', String(candidate.dataset.demoVariantOption === variant));
+        const selected = candidate.dataset.demoVariantOption === variant;
+        candidate.setAttribute('aria-selected', String(selected));
+        candidate.tabIndex = selected ? 0 : -1;
+        candidate.toggleAttribute('data-highlighted', selected);
+        const indicator = candidate.querySelector<HTMLElement>('.DemoVariantIndicator');
+        if (indicator) indicator.hidden = !selected;
       }
       for (const trigger of root.querySelectorAll<HTMLElement>('[data-demo-action="variant"]')) {
         const label = trigger.querySelector('span');
@@ -203,6 +275,23 @@
         popup.hidden = true;
         const trigger = popup.parentElement?.querySelector<HTMLElement>('[aria-expanded]');
         trigger?.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function positionToolbarPopup(trigger: HTMLElement, popup: HTMLElement, type: 'variant' | 'more') {
+      const rect = trigger.getBoundingClientRect();
+      popup.style.left = `${rect.right + (type === 'more' ? 5 : 0) - popup.offsetWidth}px`;
+      popup.style.top = `${type === 'more' ? Math.round(rect.bottom + 8) : rect.top - 4}px`;
+      popup.style.setProperty('--available-width', `${window.innerWidth - 16}px`);
+      popup.style.setProperty('--available-height', `${window.innerHeight - 16}px`);
+    }
+
+    function dismissToolbarPopups(event: PointerEvent) {
+      const target = event.target as Element | null;
+      for (const root of article.querySelectorAll<HTMLElement>('.DemoRoot')) {
+        const interactive = target?.closest('.DemoVariantSelector, .DemoMore');
+        if (interactive && root.contains(interactive)) continue;
+        closeDemoPopups(root);
       }
     }
 
@@ -232,6 +321,73 @@
     }
 
     function initializeDemoMarkup() {
+      let popupIndex = 0;
+      for (const popup of article.querySelectorAll<HTMLElement>('[data-demo-component$=".Popup"]')) {
+        const component = popup.dataset.demoComponent ?? '';
+        const modalRole = component.startsWith('AlertDialog.') ? 'alertdialog'
+          : /^(Dialog|Drawer)\./.test(component) ? 'dialog'
+          : undefined;
+        if (!modalRole) continue;
+        popup.setAttribute('role', modalRole);
+        popup.setAttribute('aria-modal', 'true');
+        popup.tabIndex = -1;
+        const title = popup.querySelector<HTMLElement>('[data-demo-part="Title"]');
+        const description = popup.querySelector<HTMLElement>('[data-demo-part="Description"]');
+        if (title) {
+          title.id ||= `demo-dialog-title-${popupIndex}`;
+          popup.setAttribute('aria-labelledby', title.id);
+        }
+        if (description) {
+          description.id ||= `demo-dialog-description-${popupIndex}`;
+          popup.setAttribute('aria-describedby', description.id);
+        }
+        popupIndex += 1;
+      }
+
+      for (const popup of article.querySelectorAll<HTMLElement>('[data-demo-component="Popover.Popup"]')) {
+        popup.setAttribute('role', 'dialog');
+        popup.tabIndex = -1;
+        const title = popup.querySelector<HTMLElement>('[data-demo-part="Title"]');
+        const description = popup.querySelector<HTMLElement>('[data-demo-part="Description"]');
+        if (title) {
+          title.id ||= `demo-popover-title-${popupIndex}`;
+          popup.setAttribute('aria-labelledby', title.id);
+        }
+        if (description) {
+          description.id ||= `demo-popover-description-${popupIndex}`;
+          popup.setAttribute('aria-describedby', description.id);
+        }
+        popupIndex += 1;
+      }
+      for (const popup of article.querySelectorAll<HTMLElement>('[data-demo-component="Menu.Popup"]')) {
+        popup.setAttribute('role', 'menu');
+        popup.tabIndex = -1;
+      }
+      for (const item of article.querySelectorAll<HTMLElement>('[data-demo-component="Menu.Item"], [data-demo-component="Menu.CheckboxItem"], [data-demo-component="Menu.RadioItem"]')) {
+        item.setAttribute('role', item.dataset.demoComponent === 'Menu.Item' ? 'menuitem'
+          : item.dataset.demoComponent === 'Menu.CheckboxItem' ? 'menuitemcheckbox' : 'menuitemradio');
+        item.tabIndex = -1;
+      }
+      for (const separator of article.querySelectorAll<HTMLElement>('[data-demo-component="Menu.Separator"]')) separator.setAttribute('role', 'separator');
+      for (const list of article.querySelectorAll<HTMLElement>('[data-demo-component="Select.List"], [data-demo-component="Combobox.List"], [data-demo-component="Autocomplete.List"]')) {
+        list.setAttribute('role', 'listbox');
+      }
+      for (const item of article.querySelectorAll<HTMLElement>('[data-demo-component="Select.Item"], [data-demo-component="Combobox.Item"], [data-demo-component="Autocomplete.Item"]')) {
+        item.setAttribute('role', 'option');
+        item.tabIndex = -1;
+        item.setAttribute('aria-selected', String(item.hasAttribute('data-selected')));
+      }
+      for (const popup of article.querySelectorAll<HTMLElement>('[data-demo-component="Tooltip.Popup"]')) popup.setAttribute('role', 'tooltip');
+      for (const trigger of article.querySelectorAll<HTMLElement>('[data-demo-component="Select.Trigger"]')) {
+        trigger.setAttribute('role', 'combobox');
+        trigger.setAttribute('aria-haspopup', 'listbox');
+      }
+      for (const input of article.querySelectorAll<HTMLElement>('[data-demo-component="Combobox.Input"], [data-demo-component="Autocomplete.Input"]')) {
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-haspopup', 'listbox');
+        input.setAttribute('aria-expanded', input.getAttribute('aria-expanded') ?? 'false');
+      }
+
       for (const control of article.querySelectorAll<HTMLElement>('[data-demo-component="Checkbox.Root"], [data-demo-component="Switch.Root"], [data-demo-component="Radio.Root"]')) {
         if (control.hasAttribute('data-demo-initialized')) continue;
         setChecked(control, control.hasAttribute('checked') || control.hasAttribute('defaultchecked'));
@@ -276,6 +432,8 @@
         arrow.hidden = true;
       }
 
+      for (const empty of article.querySelectorAll<HTMLElement>('.DemoPreview [data-demo-part="Empty"]')) empty.hidden = true;
+
       for (const input of article.querySelectorAll<HTMLInputElement>('.DemoPreview input[defaultvalue]')) {
         if (!input.value) input.value = input.getAttribute('defaultvalue') ?? '';
       }
@@ -318,7 +476,10 @@
         closeDemoPopups(root, open ? popup : undefined);
         popup.hidden = !open;
         variantTrigger.setAttribute('aria-expanded', String(open));
-        if (open) popup.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+        if (open) {
+          positionToolbarPopup(variantTrigger, popup, 'variant');
+          popup.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+        }
         return;
       }
 
@@ -338,7 +499,10 @@
         closeDemoPopups(root, open ? popup : undefined);
         popup.hidden = !open;
         moreTrigger.setAttribute('aria-expanded', String(open));
-        if (open) popup.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+        if (open) {
+          positionToolbarPopup(moreTrigger, popup, 'more');
+          popup.focus();
+        }
         return;
       }
 
@@ -351,8 +515,7 @@
       const copySource = target?.closest<HTMLElement>('[data-demo-action="copy-source"]');
       if (copySource && article.contains(copySource)) {
         const root = copySource.closest<HTMLElement>('.DemoRoot');
-        void navigator.clipboard?.writeText(root?.dataset.sourceUrl ?? '');
-        closeDemoPopups(root!);
+        void copyText(root?.dataset.sourceUrl ?? '', copySource as HTMLButtonElement, 'Link copied!');
         return;
       }
 
@@ -362,7 +525,7 @@
         const code = [...(container?.querySelectorAll<HTMLElement>('pre:not([hidden]) code') ?? [])][0]?.textContent
           ?? container?.querySelector('code')?.textContent
           ?? '';
-        void navigator.clipboard?.writeText(code);
+        void copyText(code, copyCode);
         return;
       }
 
@@ -447,7 +610,7 @@
       if (!trigger || !article.contains(trigger)) return;
 
       const group = trigger.closest<HTMLElement>('[data-demo-part="Item"]') ?? trigger.parentElement;
-      const localPanel = group?.querySelector<HTMLElement>('[data-demo-part="Panel"], [data-demo-part="Content"]');
+      const localPanel = group?.querySelector<HTMLElement>(':scope > [data-demo-part="Panel"], :scope > [data-demo-part="Content"]');
       const preview = trigger.closest('.DemoPreview');
       const componentRoot = trigger.closest<HTMLElement>('[data-demo-part="Root"]');
       const popup = localPanel
@@ -470,6 +633,24 @@
     }
 
     function keydown(event: KeyboardEvent) {
+      const toolbarPopup = (event.target as Element | null)?.closest<HTMLElement>('.DemoVariantPopup, .DemoMorePopup');
+      if (toolbarPopup && article.contains(toolbarPopup)) {
+        const items = [...toolbarPopup.querySelectorAll<HTMLElement>('[role="option"], [role="menuitem"]')];
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+          const focusedIndex = items.indexOf(document.activeElement as HTMLElement);
+          const nextIndex = event.key === 'Home' ? 0
+            : event.key === 'End' ? items.length - 1
+            : (Math.max(focusedIndex, event.key === 'ArrowDown' ? -1 : 0)
+              + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+          const next = items[nextIndex];
+          if (!next) return;
+          event.preventDefault();
+          for (const item of items) item.toggleAttribute('data-highlighted', item === next);
+          next.focus();
+          return;
+        }
+      }
+
       const tab = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-installation-block] [role="tab"]');
       if (tab && article.contains(tab) && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
         const tabs = [...(tab.closest('[role="tablist"]')?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [])];
@@ -515,8 +696,23 @@
       }
 
       if (event.key === 'Escape') {
+        const openOverlay = article.querySelector<HTMLElement>('[data-demo-component$=".Popup"]:not([hidden])[data-open]');
+        if (openOverlay) {
+          const overlayRoot = openOverlay.closest<HTMLElement>('[data-demo-part="Root"]');
+          const overlayTrigger = overlayRoot?.querySelector<HTMLElement>('[data-demo-part="Trigger"][aria-expanded="true"]');
+          if (overlayTrigger) {
+            event.preventDefault();
+            setDemoOverlayOpen(overlayTrigger, openOverlay, false);
+            overlayTrigger.focus();
+            return;
+          }
+        }
         const root = (event.target as Element | null)?.closest<HTMLElement>('.DemoRoot');
-        if (root) closeDemoPopups(root);
+        if (root) {
+          const trigger = root.querySelector<HTMLElement>('[aria-expanded="true"][data-demo-action]');
+          closeDemoPopups(root);
+          trigger?.focus();
+        }
       }
     }
 
@@ -534,14 +730,53 @@
       trigger.setAttribute('aria-expanded', 'true');
     }
 
+    function hoverOverlay(event: PointerEvent) {
+      const target = event.target as Element | null;
+      const trigger = target?.closest<HTMLElement>('[data-demo-component="Tooltip.Trigger"], [data-demo-component="PreviewCard.Trigger"]');
+      const positioner = target?.closest<HTMLElement>('[data-demo-component="Tooltip.Positioner"], [data-demo-component="PreviewCard.Positioner"]');
+      const root = (trigger ?? positioner)?.closest<HTMLElement>('[data-demo-part="Root"]');
+      const overlayTrigger = trigger ?? root?.querySelector<HTMLElement>('[data-demo-part="Trigger"]');
+      const popup = root?.querySelector<HTMLElement>('[data-demo-part="Popup"]');
+      if (!overlayTrigger || !popup) return;
+      const existing = hoverTimers.get(overlayTrigger);
+      if (existing) window.clearTimeout(existing);
+      hoverTimers.delete(overlayTrigger);
+      if (event.type === 'pointerover') {
+        if (overlayTrigger.getAttribute('aria-expanded') === 'true') return;
+        hoverTimers.set(overlayTrigger, window.setTimeout(() => {
+          setDemoOverlayOpen(overlayTrigger, popup, true, false);
+          hoverTimers.delete(overlayTrigger);
+        }, 600));
+        return;
+      }
+      const related = event.relatedTarget as Node | null;
+      if (related && root?.contains(related)) return;
+      hoverTimers.set(overlayTrigger, window.setTimeout(() => {
+        setDemoOverlayOpen(overlayTrigger, popup, false, false);
+        hoverTimers.delete(overlayTrigger);
+      }, 100));
+    }
+
     article.addEventListener('click', click);
     article.addEventListener('keydown', keydown);
     article.addEventListener('contextmenu', contextmenu);
+    article.addEventListener('pointerover', hoverOverlay);
+    article.addEventListener('pointerout', hoverOverlay);
+    document.addEventListener('pointerdown', dismissToolbarPopups, { capture: true });
+    article.toggleAttribute('data-demo-enhanced', true);
     return () => {
       demoObserver.disconnect();
+      article.toggleAttribute('data-demo-enhanced', false);
+      document.body.style.overflow = '';
+      for (const timer of copyTimers.values()) window.clearTimeout(timer);
+      for (const timer of hoverTimers.values()) window.clearTimeout(timer);
+      copyStatus.remove();
       article.removeEventListener('click', click);
       article.removeEventListener('keydown', keydown);
       article.removeEventListener('contextmenu', contextmenu);
+      article.removeEventListener('pointerover', hoverOverlay);
+      article.removeEventListener('pointerout', hoverOverlay);
+      document.removeEventListener('pointerdown', dismissToolbarPopups, { capture: true });
     };
   }
 

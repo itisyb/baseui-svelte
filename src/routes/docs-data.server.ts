@@ -193,9 +193,10 @@ function installationBlock(packageName: string) {
   return `<div class="InstallationBlock" data-installation-block=""><div class="CodeBlockRoot" role="figure" aria-labelledby="installation-title"><div class="CodeBlockPanel"><span id="installation-title" class="VisuallyHidden">Installation command</span><div class="InstallationBlockTabsList" role="tablist" aria-label="Package manager">${tabs}</div><button class="CodeBlockCopyButton" type="button" aria-label="Copy code"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor"/><path d="M10.5 5.5V3.5A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h2" stroke="currentColor"/></svg></button></div>${panels}</div></div>`;
 }
 
-function demoTag(name: string) {
+function demoTag(name: string, attributes = '') {
   const part = name.split('.').at(-1) ?? name;
   if (name === 'ContextMenu.Trigger') return 'div';
+  if (part === 'Trigger' && /\bhref=/.test(attributes)) return 'a';
   if (/^(Checkbox\.Root|Switch\.Root|Radio\.Root|Toggle|Tabs\.Tab)$/.test(name)) return 'button';
   if (/Trigger|Button|Close|Increment|Decrement|Clear|Remove/.test(part)) return 'button';
   if (part === 'Input' || name === 'Field.Control') return 'input';
@@ -208,7 +209,7 @@ function demoTag(name: string) {
 function demoElementAttributes(name: string, attributes: string) {
   const part = name.split('.').at(-1) ?? name;
   let result = attributes;
-  if (demoTag(name) === 'button' && !/\btype=/.test(result)) result += ' type="button"';
+  if (demoTag(name, attributes) === 'button' && !/\btype=/.test(result)) result += ' type="button"';
   if (part === 'Trigger' && !/\baria-expanded=/.test(result)) result += ' aria-expanded="false"';
   if (part === 'Increment' && !/\baria-label=/.test(result)) result += ' aria-label="Increase"';
   if (part === 'Decrement' && !/\baria-label=/.test(result)) result += ' aria-label="Decrease"';
@@ -457,7 +458,8 @@ function jsxPreview(source: string, cssModulePrefix = '', sourceMode = false) {
       const local = !sourceName.includes('.') ? localComponents.get(sourceName) : undefined;
       if (local) return renderExpression(local);
       const componentName = /^[A-Z]/.test(sourceName) ? sourceName : null;
-      const tag = componentName && !sourceMode ? demoTag(sourceName) : sourceName;
+      const attributes = renderAttributes(node.openingElement.attributes, componentName);
+      const tag = componentName && !sourceMode ? demoTag(sourceName, attributes) : sourceName;
       const part = componentName ? sourceName.split('.').at(-1) : null;
       const hidden = !sourceMode && part && /^(Panel|Popup|Positioner|Backdrop|Portal|Viewport|Content|Error|ScrubAreaCursor)$/.test(part) ? ' hidden' : '';
       const itemsAttribute = node.openingElement.attributes.properties
@@ -472,11 +474,11 @@ function jsxPreview(source: string, cssModulePrefix = '', sourceMode = false) {
       if (collection) collectionStack.push(collection);
       const children = renderChildren(node.children);
       if (collection) collectionStack.pop();
-      const attributes = renderAttributes(node.openingElement.attributes, componentName);
       const accessibleName = !sourceMode && tag === 'button' && !/\baria-label=/.test(attributes) && !plainText(children)
         ? ' aria-label="Open menu"'
         : '';
-      return `<${tag}${attributes}${accessibleName}${componentName && !sourceMode ? ` data-demo-component="${componentName}"` : ''}${part && !sourceMode ? ` data-demo-part="${part}"` : ''}${hidden}>${children}</${tag}>`;
+      const renderedChildren = tag === 'a' ? children.trim() : children;
+      return `<${tag}${attributes}${accessibleName}${componentName && !sourceMode ? ` data-demo-component="${componentName}"` : ''}${part && !sourceMode ? ` data-demo-part="${part}"` : ''}${hidden}>${renderedChildren}</${tag}>`;
     }
     if (ts.isJsxSelfClosingElement(node)) {
       const sourceName = node.tagName.getText(sourceFile);
@@ -485,9 +487,9 @@ function jsxPreview(source: string, cssModulePrefix = '', sourceMode = false) {
       const local = !sourceName.includes('.') ? localComponents.get(sourceName) : undefined;
       if (local) return renderExpression(local);
       const componentName = /^[A-Z]/.test(sourceName) ? sourceName : null;
-      const tag = componentName && !sourceMode ? demoTag(sourceName) : sourceName;
-      const part = componentName ? sourceName.split('.').at(-1) : null;
       const attributes = renderAttributes(node.attributes, componentName);
+      const tag = componentName && !sourceMode ? demoTag(sourceName, attributes) : sourceName;
+      const part = componentName ? sourceName.split('.').at(-1) : null;
       if (sourceMode) return `<${tag}${attributes} />`;
       if (/^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/.test(tag)) {
         return `<${tag}${attributes}${componentName ? ` data-demo-component="${componentName}"` : ''}${part ? ` data-demo-part="${part}"` : ''}>`;
@@ -511,10 +513,28 @@ function jsxPreview(source: string, cssModulePrefix = '', sourceMode = false) {
   return renderExpression(returned).replace(/\n\s*\n/g, '\n').trim();
 }
 
-function translateDemoSource(source: string) {
-  const body = source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1]?.trim()
-    ?? source.match(/return\s+([^;]+);/m)?.[1]?.trim()
-    ?? '';
+function dedent(value: string) {
+  const lines = value.replace(/\r\n?/g, '\n').split('\n');
+  while (lines[0]?.trim() === '') lines.shift();
+  while (lines.at(-1)?.trim() === '') lines.pop();
+
+  const nonEmptyLines = lines.filter((line) => line.trim() !== '');
+  const indentation = nonEmptyLines.length
+    ? Math.min(...nonEmptyLines.map((line) => line.match(/^[ \t]*/)?.[0].length ?? 0))
+    : 0;
+
+  return lines
+    .map((line) => line.trim() === '' ? '' : line.slice(indentation))
+    .join('\n');
+}
+
+export function translateDemoSource(source: string) {
+  const body = dedent(
+    source.match(/return[ \t]*\([ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*\);/m)?.[1]
+      ?? source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1]
+      ?? source.match(/return\s+([^;]+);/m)?.[1]
+      ?? '',
+  );
   const namespaceComponents = new Set([
     'Accordion', 'AlertDialog', 'Autocomplete', 'Checkbox', 'CheckboxGroup', 'Collapsible',
     'Combobox', 'ContextMenu', 'Dialog', 'Drawer', 'Field', 'Fieldset', 'Form', 'Menu',
@@ -565,7 +585,9 @@ async function fetchText(fetcher: typeof fetch, url: string) {
 }
 
 const copyIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="square" d="M1.5 1.5h10v10h-10z"/><path stroke-linecap="square" d="M4.5 11.5h-3v-10h10v3"/><path d="M12 4.5h2.5v10h-10V12"/></svg>';
+const checkIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="m2.5 8.5 4 4 7-9"/></svg>';
 const externalLinkIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="square" stroke-linejoin="round" d="m4 12 8-8"/><path d="M5 3.5h7.5V11"/></svg>';
+const githubIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.57983 0 0 3.67031 0 8.20221c0 3.62969 2.29009 6.69509 5.46991 7.78139.4.072.54957-.174.54957-.3894 0-.1947-.00974-.8402-.00974-1.5278-2.00974.3795-2.52939-.5021-2.68939-.9628-.09044-.2361-.48-.9643-.82087-1.1591-.27965-.1541-.67965-.5334-.00974-.5434.63026-.01 1.08035.5948 1.23061.8409.72 1.241 1.86991.8915 2.32974.6761.06956-.5328.27965-.8915.50991-1.0969-1.78017-.2047-3.63965-.9122-3.63965-4.04979 0-.89154.30956-1.62974.81948-2.20389-.08-.20542-.35966-1.04632.08-2.17395 0 0 .66991-.21539 2.20034.84091.64-.18473 1.31966-.27674 2-.27674.67966 0 1.36.09272 2.00003.27674 1.5304-1.06629 2.1996-.84091 2.1996-.84091.4404 1.12763.16 1.96853.08 2.17395.5099.57415.8202 1.30165.8202 2.20389 0 3.14759-1.8699 3.84439-3.65004 4.04979.29004.2567.53974.7489.53974 1.5177 0 1.097-.00975 1.9785-.00975 2.2553 0 .2154.15035.4721.54965.3902C13.7107 14.8973 16 11.8212 16 8.20221 16 3.67031 12.4202 0 8 0"/></svg>';
 const moreIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.5 13c0 .8284-.67157 1.5-1.5 1.5s-1.5-.6716-1.5-1.5.67157-1.5 1.5-1.5 1.5.6716 1.5 1.5m0-5c0 .82843-.67157 1.5-1.5 1.5S6.5 8.82843 6.5 8 7.17157 6.5 8 6.5s1.5.67157 1.5 1.5m0-5c0 .82843-.67157 1.5-1.5 1.5S6.5 3.82843 6.5 3 7.17157 1.5 8 1.5s1.5.67157 1.5 1.5"/></svg>';
 const selectIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11 10H5l3 3.5zm0-4H5l3-3.5z"/></svg>';
 
@@ -638,9 +660,9 @@ async function loadDemoVariant(
 
 function demoToolbarActions(variants: DemoVariant[], selected: DemoVariant, sourceUrl: string) {
   const variantSelector = variants.length > 1
-    ? `<div class="DemoVariantSelector"><button class="GhostButton" type="button" role="combobox" aria-label="Styling method" aria-haspopup="listbox" aria-expanded="false" data-demo-action="variant"><span>${selected.label}</span>${selectIcon}</button><div class="DemoVariantPopup" role="listbox" aria-label="Styling method" hidden>${variants.map((variant) => `<button type="button" role="option" aria-selected="${variant === selected}" data-demo-variant-option="${variant.id}">${variant.label}</button>`).join('')}</div></div>`
+    ? `<div class="DemoVariantSelector"><button class="GhostButton" type="button" role="combobox" aria-label="Styling method" aria-haspopup="listbox" aria-expanded="false" data-demo-action="variant"><span>${selected.label}</span>${selectIcon}</button><div class="DemoVariantPopup" role="listbox" aria-label="Styling method" tabindex="-1" hidden>${variants.map((variant) => `<button type="button" role="option" aria-selected="${variant === selected}" tabindex="${variant === selected ? '0' : '-1'}" data-demo-variant-option="${variant.id}"${variant === selected ? ' data-highlighted' : ''}><span class="DemoVariantIndicator"${variant === selected ? '' : ' hidden'}>${checkIcon}</span><span class="DemoVariantText">${variant.label}</span></button>`).join('')}</div></div>`
     : '';
-  return `${variantSelector}<button class="GhostButton" type="button" aria-label="Open in StackBlitz" data-demo-action="stackblitz">StackBlitz${externalLinkIcon}</button><div class="DemoMore"><button class="GhostButton" data-layout="icon" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" data-demo-action="more">${moreIcon}</button><div class="DemoMorePopup" role="menu" hidden><a role="menuitem" href="${sourceUrl}" target="_blank" rel="noopener">View source on GitHub${externalLinkIcon}</a><button type="button" role="menuitem" data-demo-action="copy-source">${copyIcon}Copy link to source</button></div></div>`;
+  return `${variantSelector}<button class="GhostButton" type="button" aria-label="Open in StackBlitz" data-demo-action="stackblitz">StackBlitz${externalLinkIcon}</button><div class="DemoMore"><button class="GhostButton" data-layout="icon" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" data-demo-action="more">${moreIcon}</button><div class="DemoMorePopup" role="menu" tabindex="-1" hidden><a role="menuitem" tabindex="-1" href="${sourceUrl}" target="_blank" rel="noopener">${githubIcon}View source on GitHub${externalLinkIcon}</a><button type="button" role="menuitem" tabindex="-1" data-demo-action="copy-source"><span class="DemoCopySourceIcon">${copyIcon}</span>Copy link to source</button></div></div>`;
 }
 
 async function renderDemo(fetcher: typeof fetch, pagePath: string, importPath: string, name: string) {

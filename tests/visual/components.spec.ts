@@ -137,12 +137,31 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
   await expect(fileTabs.nth(1)).toHaveAttribute('aria-selected', 'true');
   await expect(demo.locator('.DemoCode:not([hidden])')).toContainText('.Accordion');
 
+  const firstTabBox = await fileTabs.nth(0).boundingBox();
+  expect(firstTabBox).not.toBeNull();
+  await page.mouse.move(firstTabBox!.x + firstTabBox!.width / 2, firstTabBox!.y + firstTabBox!.height / 2);
+  await page.mouse.down();
+  await expect.poll(async () => fileTabs.nth(0).evaluate((tab) => ({
+    color: getComputedStyle(tab).color,
+    background: getComputedStyle(tab).backgroundColor,
+  }))).toEqual({ color: 'rgb(230, 230, 230)', background: 'rgba(0, 0, 0, 0)' });
+  await page.mouse.up();
+
+  await page.keyboard.press('Tab');
+  await fileTabs.nth(0).focus();
+  await expect.poll(async () => fileTabs.nth(0).evaluate((tab) => ({
+    focusVisible: tab.matches(':focus-visible'),
+    radius: getComputedStyle(tab).borderRadius,
+    outlineOffset: getComputedStyle(tab).outlineOffset,
+  }))).toEqual({ focusVisible: true, radius: '0px', outlineOffset: '-2px' });
+
   const reference = page.locator('.ReferenceAccordionRoot').first();
   await expect(reference).toBeVisible();
   await expect.poll(async () => reference.boundingBox()).toMatchObject({ width: 768, height: 534 });
   await expect(reference.locator('.AccordionItem')).toHaveCount(12);
 
   await page.reload();
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
   await expect(page).toHaveScreenshot('accordion-detail.png', {
     animations: 'disabled',
     caret: 'hide',
@@ -154,6 +173,7 @@ test('matches the Select popup geometry and selection behavior', async ({ page }
   test.skip(testInfo.project.name.startsWith('mobile'));
   await page.goto('/svelte/components/select');
   await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
 
   const preview = page.locator('.DemoVariantPreview:not([hidden]) .DemoPreview').first();
   const trigger = preview.locator('[data-demo-part="Trigger"]').first();
@@ -172,6 +192,184 @@ test('matches the Select popup geometry and selection behavior', async ({ page }
   await expect(trigger.locator('[data-demo-part="Value"]')).toHaveText('Fuji');
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
   await expect(popup).toBeHidden();
+});
+
+test('keeps modal overlays above the complete demo shell', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await page.goto('/svelte/components/alert-dialog');
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+
+  const trigger = page.getByRole('button', { name: 'Discard draft' }).first();
+  await trigger.click();
+  const dialog = page.getByRole('alertdialog', { name: 'Discard draft?' }).first();
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toBeFocused();
+  await expect.poll(async () => dialog.boundingBox()).toMatchObject({
+    x: 528,
+    y: 453,
+    width: 384,
+    height: 130,
+  });
+  await expect.poll(() => page.evaluate(() => {
+    const topmost = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    return topmost?.closest('[role="alertdialog"]') !== null;
+  })).toBe(true);
+  await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+
+  await page.goto('/svelte/components/drawer');
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+  const drawerTrigger = page.getByRole('button', { name: 'Open drawer', exact: true }).first();
+  await drawerTrigger.click();
+  const drawer = page.getByRole('dialog', { name: 'Drawer', exact: true }).first();
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toBeFocused();
+  await expect.poll(() => drawer.evaluate((element) => getComputedStyle(element).transform), { timeout: 10_000 }).toBe('none');
+  await expect.poll(async () => drawer.boundingBox()).toMatchObject({
+    x: 1120,
+    y: 0,
+    width: 368,
+    height: 1100,
+  });
+  await expect.poll(() => page.evaluate(() => {
+    const topmost = document.elementFromPoint(window.innerWidth - 20, window.innerHeight / 2);
+    return topmost?.closest('[role="dialog"]') !== null;
+  })).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  await expect(drawerTrigger).toBeFocused();
+});
+
+test('matches floating overlay geometry and interaction behavior', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+
+  await page.goto('/svelte/components/popover');
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+  const popoverTrigger = page.getByRole('button', { name: 'Notifications', exact: true }).first();
+  await popoverTrigger.click();
+  const popover = page.getByRole('dialog', { name: 'Notifications' }).first();
+  await expect.poll(async () => popover.boundingBox()).toMatchObject({
+    x: 609,
+    y: 303,
+    width: 222.9375,
+    height: 70,
+  });
+  await page.keyboard.press('Escape');
+  await expect(popover).toBeHidden();
+  await expect(popoverTrigger).toBeFocused();
+
+  await page.goto('/svelte/components/combobox');
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+  const comboboxRoot = page.locator('.DemoRoot').first();
+  await comboboxRoot.getByRole('button', { name: 'Open popup' }).click();
+  const listbox = comboboxRoot.getByRole('listbox');
+  await expect.poll(async () => listbox.boundingBox()).toMatchObject({
+    x: 609,
+    y: 312,
+    width: 222,
+    height: 360,
+  });
+  await expect(listbox.getByRole('option').first()).toHaveText('Apple');
+
+  await page.goto('/svelte/components/preview-card');
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+  const previewRoot = page.locator('.DemoRoot').first();
+  const preview = previewRoot.locator('.DemoVariantPreview:not([hidden])');
+  const previewTrigger = preview.getByRole('link', { name: 'typography', exact: true });
+  await previewTrigger.hover();
+  const previewPopup = preview.locator('[data-demo-component="PreviewCard.Popup"]');
+  await expect(previewPopup).toBeVisible({ timeout: 2_000 });
+  await expect.poll(async () => previewPopup.boundingBox()).toMatchObject({ x: 592, y: 300, width: 242 });
+  await page.mouse.move(20, 20);
+  await expect(previewPopup).toBeHidden();
+});
+
+test('walks every demo-toolbar interaction state', async ({ page, context }, testInfo) => {
+  test.setTimeout(60_000);
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/svelte/components/accordion');
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('.MdContent')).toHaveAttribute('data-demo-enhanced', '');
+
+  const demo = page.locator('.DemoRoot').first();
+  const copy = demo.getByRole('button', { name: 'Copy code' });
+  await copy.click();
+  await expect(copy.locator('path').first()).toHaveAttribute('d', 'm2.5 8.5 4 4 7-9');
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("@itisyb/baseui-svelte/accordion");
+  await page.waitForTimeout(2100);
+  await expect(copy.locator('path').first()).toHaveAttribute('d', 'M1.5 1.5h10v10h-10z');
+
+  const referenceCopy = page.locator('.CodeFrame').getByRole('button', { name: 'Copy code' });
+  await expect.poll(async () => referenceCopy.boundingBox()).toMatchObject({ width: 28, height: 28 });
+  await referenceCopy.click();
+  await expect(referenceCopy.locator('path')).toHaveAttribute('d', 'm2.5 8.5 4 4 7-9');
+
+  const variant = demo.getByRole('combobox', { name: 'Styling method' });
+  await variant.click();
+  await expect(variant).toHaveAttribute('aria-expanded', 'true');
+  const listbox = demo.getByRole('listbox', { name: 'Styling method' });
+  await expect(listbox).toBeVisible();
+  await expect.poll(async () => listbox.boundingBox()).toMatchObject({
+    x: 822.5625,
+    y: 391.203125,
+    width: 138.859375,
+    height: 64,
+  });
+  await expect(listbox.getByRole('option', { name: 'CSS Modules' }).locator('.DemoVariantIndicator path')).toHaveAttribute('d', 'm2.5 8.5 4 4 7-9');
+  await page.keyboard.press('ArrowDown');
+  await expect(listbox.getByRole('option', { name: 'Tailwind v4' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(variant).toContainText('Tailwind v4');
+  await expect(demo.getByRole('tab')).toHaveCount(1);
+
+  const more = demo.getByRole('button', { name: 'More actions' });
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  const menu = demo.getByRole('menu');
+  await expect(menu).toBeVisible();
+  await expect.poll(async () => menu.boundingBox()).toMatchObject({
+    x: 894,
+    y: 431,
+    width: 206.046875,
+    height: 64,
+  });
+  await expect(menu.getByRole('menuitem', { name: /View source on GitHub/ })).toHaveAttribute('href', /github\.com\/itisyb\/baseui-svelte/);
+  const copySource = menu.getByRole('menuitem', { name: 'Copy link to source' });
+  await copySource.click();
+  await expect(menu).toBeVisible();
+  await expect(copySource.locator('.DemoCopySourceIcon path')).toHaveAttribute('d', 'm2.5 8.5 4 4 7-9');
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('github.com/itisyb/baseui-svelte');
+  await page.waitForTimeout(2100);
+  await expect(copySource.locator('.DemoCopySourceIcon path').first()).toHaveAttribute('d', 'M1.5 1.5h10v10h-10z');
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(more).toBeFocused();
+
+  const hideCode = demo.locator('.DemoShowCode');
+  await expect(hideCode).toHaveText('Hide code');
+  await expect(demo).toHaveClass(/DemoCodeExpanded/);
+  await hideCode.click();
+  await expect(hideCode).toHaveText('Show code');
+  await expect(demo).not.toHaveClass(/DemoCodeExpanded/);
+  await hideCode.click();
+  await expect(hideCode).toHaveText('Hide code');
+
+  const opened: string[] = [];
+  await page.evaluate(() => {
+    window.open = ((url?: string | URL) => {
+      document.documentElement.dataset.openedUrl = String(url ?? '');
+      return null;
+    }) as typeof window.open;
+  });
+  await demo.getByRole('button', { name: 'Open in StackBlitz' }).click();
+  opened.push(await page.locator('html').getAttribute('data-opened-url') ?? '');
+  expect(opened).toEqual(['https://stackblitz.com/fork/svelte?file=src%2FApp.svelte']);
 });
 
 test('renders Quick start without MDX or TSX artifacts', async ({ page }, testInfo) => {

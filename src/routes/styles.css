@@ -537,7 +537,7 @@ svg {
   height: 2.25rem;
   align-items: center;
   justify-content: space-between;
-  padding-inline: 0.75rem;
+  padding: 0 0.25rem 0 0.75rem;
   border-bottom: 1px solid var(--color-border);
   background: var(--gray-s2);
   font-size: var(--font-size-13);
@@ -545,13 +545,24 @@ svg {
 }
 
 .CodeFrame figcaption button {
-  width: 1.5rem;
-  height: 1.5rem;
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 0;
+  border-radius: var(--radius-8);
+  outline: 0;
   background: transparent;
   color: currentColor;
   cursor: pointer;
+}
+
+.CodeFrame figcaption button:hover { background: var(--gray-c1); }
+.CodeFrame figcaption button:focus-visible {
+  outline: 2px solid var(--gray-t2);
+  outline-offset: -1px;
 }
 
 .CodeFrame pre {
@@ -1158,7 +1169,13 @@ svg {
   background: var(--gray-s1);
 }
 
-.DemoTab:focus-visible {
+.MdContent .DemoTab:active {
+  background: transparent;
+  color: inherit;
+}
+
+.MdContent .DemoTab:focus-visible {
+  border-radius: 0;
   outline: 2px solid var(--gray-t2);
   outline-offset: -2px;
 }
@@ -1221,22 +1238,42 @@ svg {
   position: relative;
 }
 
+.DemoPreview [data-demo-part='Portal'][data-demo-overlay-layer] {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  inset: 0;
+}
+
+.DemoPreview [data-demo-part='Portal'][data-demo-overlay-layer] :is(
+  [data-demo-part='Backdrop'],
+  [data-demo-part='Viewport'],
+  [data-demo-part='Popup']
+) {
+  pointer-events: auto;
+}
+
 .DemoVariantSelector > .GhostButton > svg {
   margin-inline-start: -0.125rem;
 }
 
 .DemoVariantPopup,
 .DemoMorePopup {
-  position: absolute;
-  inset: calc(100% + 0.25rem) 0 auto auto;
-  z-index: 20;
-  display: grid;
-  min-width: 10rem;
-  padding: 0.25rem;
-  border: 1px solid var(--color-border);
+  position: fixed;
+  z-index: 30;
+  min-width: min-content;
+  max-width: var(--available-width, none);
+  max-height: var(--available-height, none);
+  padding-block: 0.25rem;
+  border: 0;
   border-radius: var(--radius-8);
   background: var(--color-popup);
-  box-shadow: 0 8px 24px hsl(0 0% 0% / 20%);
+  box-shadow: 0 0 0 1px var(--gray-c3) inset;
+  color: var(--gray-t2);
+  cursor: default;
+  user-select: none;
+  outline: 0;
+  overflow: hidden;
 }
 
 .DemoVariantPopup[hidden],
@@ -1244,32 +1281,82 @@ svg {
   display: none;
 }
 
-.DemoVariantPopup button,
-.DemoMorePopup a,
-.DemoMorePopup button {
+.DemoVariantPopup button {
+  position: relative;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: 0.625rem 1rem 0.375rem auto 1.75rem;
+  width: 100%;
+  height: 1.75rem;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gray-t2);
+  font: var(--font-weight-400) var(--font-size-13) / 1 var(--font-sans);
+  text-align: start;
+  white-space: nowrap;
+  outline: 0;
+}
+
+.DemoVariantPopup button::before,
+.DemoMorePopup :is(a, button)::before {
+  position: absolute;
+  z-index: -1;
+  border-radius: var(--radius-4);
+  background: var(--gray-t2);
+  content: '';
+  inset-block: 0;
+  inset-inline: 0.25rem;
+  opacity: 0;
+}
+
+.DemoVariantPopup button:is([data-highlighted], :hover, :focus-visible),
+.MdContent .DemoMorePopup :is(a, button):is(:hover, :focus-visible) {
+  color: var(--gray-s1);
+  outline: 0;
+}
+
+.DemoVariantPopup button:is([data-highlighted], :hover, :focus-visible)::before,
+.DemoMorePopup :is(a, button):is(:hover, :focus-visible)::before {
+  opacity: 1;
+}
+
+.DemoVariantIndicator {
+  grid-column: 2;
+  width: 100%;
+  margin-top: -1px;
+}
+
+.DemoVariantIndicator[hidden] {
+  display: none;
+}
+
+.DemoVariantText {
+  grid-column: 4;
+}
+
+.MdContent .DemoMorePopup :is(a, button) {
+  position: relative;
+  z-index: 0;
   display: flex;
-  min-height: 2rem;
+  width: 100%;
+  height: 1.75rem;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
+  padding: 0 0.75rem;
   border: 0;
-  border-radius: var(--radius-4);
   background: transparent;
-  color: var(--color-foreground);
-  font: inherit;
+  color: var(--gray-t2);
+  font: var(--font-weight-400) var(--font-size-13) / 1 var(--font-sans);
   text-align: start;
   text-decoration: none;
   white-space: nowrap;
+  outline: 0;
 }
 
-.DemoVariantPopup button:hover,
-.DemoVariantPopup button:focus-visible,
-.DemoMorePopup a:hover,
-.DemoMorePopup a:focus-visible,
-.DemoMorePopup button:hover,
-.DemoMorePopup button:focus-visible {
-  background: var(--gray-c1);
-  outline: 0;
+.DemoCopySourceIcon {
+  display: contents;
 }
 
 .DemoCodeBlockRoot {
@@ -1336,6 +1423,13 @@ svg {
   inset: 0.5rem 0.5rem auto auto;
   z-index: 3;
   background: color-mix(in srgb, var(--gray-s1), transparent 10%);
+}
+
+@media (min-width: 48rem) {
+  .DemoCodeBlockCopyButton {
+    background: transparent;
+    box-shadow: none;
+  }
 }
 
 .DemoShowCode {
