@@ -1,11 +1,10 @@
 import { marked } from 'marked';
-import { common, createStarryNight } from '@wooorm/starry-night';
-import sourceSvelte from '@wooorm/starry-night/source.svelte';
-import { toHtml } from 'hast-util-to-html';
+import { codeToHtml, type BundledLanguage } from 'shiki';
+import { compile as compileSvelte } from 'svelte/compiler';
+import ts from 'typescript';
 
 export const UPSTREAM_COMMIT = '7ffe6342b09eea1721892e1e274419de17f02873';
 const DOCS_SOURCE_ROOT = `https://raw.githubusercontent.com/mui/base-ui/${UPSTREAM_COMMIT}/docs/src/app/(docs)/react`;
-const highlighter = createStarryNight([...common, sourceSvelte]);
 
 export const components = [
   'Accordion',
@@ -150,10 +149,31 @@ function unescapeHtml(value: string) {
 }
 
 async function highlightCode(code: string, language: string) {
-  const starryNight = await highlighter;
-  const scope = starryNight.flagToScope(language === 'svelte' ? 'svelte' : language);
-  if (!scope) return escapeHtml(code);
-  return toHtml(starryNight.highlight(code, scope));
+  const aliases: Record<string, BundledLanguage> = {
+    bash: 'bash',
+    css: 'css',
+    html: 'html',
+    js: 'javascript',
+    javascript: 'javascript',
+    json: 'json',
+    md: 'markdown',
+    markdown: 'markdown',
+    sh: 'bash',
+    svelte: 'svelte',
+    ts: 'typescript',
+    tsx: 'tsx',
+    typescript: 'typescript',
+  };
+  const lang = aliases[language.toLowerCase()] ?? 'text';
+  const html = await codeToHtml(code, {
+    lang,
+    themes: { light: 'github-light', dark: 'github-dark' },
+    defaultColor: false,
+  });
+  return (html.match(/<code>([\s\S]*?)<\/code>/)?.[1] ?? escapeHtml(code))
+    // Shiki separates block-level line spans with text newlines. Keeping both
+    // creates an extra anonymous line box inside a <pre> in Chromium.
+    .replace(/<\/span>\n<span class="line"/g, '</span><span class="line"');
 }
 
 function installationBlock(packageName: string) {
@@ -174,55 +194,321 @@ function installationBlock(packageName: string) {
 }
 
 function demoTag(name: string) {
-  const part = name.replace(/^Demo[A-Za-z0-9]+/, '') || 'Root';
-  if (/Trigger|Button|Close|Increment|Decrement|Clear|Remove|Arrow/.test(part)) return 'button';
-  if (/Input/.test(part)) return 'input';
-  if (/Label/.test(part)) return 'label';
+  const part = name.split('.').at(-1) ?? name;
+  if (name === 'ContextMenu.Trigger') return 'div';
+  if (/^(Checkbox\.Root|Switch\.Root|Radio\.Root|Toggle|Tabs\.Tab)$/.test(name)) return 'button';
+  if (/Trigger|Button|Close|Increment|Decrement|Clear|Remove/.test(part)) return 'button';
+  if (part === 'Input' || name === 'Field.Control') return 'input';
+  if (part === 'Label') return 'label';
   if (/Header/.test(part)) return 'h3';
   if (/Link/.test(part)) return 'a';
-  if (/List/.test(part)) return 'ul';
   return 'div';
 }
 
-function jsxPreview(source: string) {
-  const returned = source.match(/return\s*\(\s*([\s\S]*?)\s*\);/m)?.[1]
-    ?? source.match(/return\s+([^;]+);/m)?.[1]
-    ?? '';
+function demoElementAttributes(name: string, attributes: string) {
+  const part = name.split('.').at(-1) ?? name;
+  let result = attributes;
+  if (demoTag(name) === 'button' && !/\btype=/.test(result)) result += ' type="button"';
+  if (part === 'Trigger' && !/\baria-expanded=/.test(result)) result += ' aria-expanded="false"';
+  if (part === 'Increment' && !/\baria-label=/.test(result)) result += ' aria-label="Increase"';
+  if (part === 'Decrement' && !/\baria-label=/.test(result)) result += ' aria-label="Decrease"';
+  if (part === 'ChipRemove' && !/\baria-label=/.test(result)) result += ' aria-label="Remove item"';
+  const initiallyChecked = /\b(?:checked|defaultChecked)(?:\s|=|$)/.test(result);
+  const initiallyPressed = /\b(?:pressed|defaultPressed)(?:\s|=|$)/.test(result);
+  if (name === 'Checkbox.Root' && !/\brole=/.test(result)) result += ` role="checkbox" aria-checked="${initiallyChecked}"${initiallyChecked ? ' data-checked=""' : ' data-unchecked=""'}`;
+  if (name === 'Switch.Root' && !/\brole=/.test(result)) result += ` role="switch" aria-checked="${initiallyChecked}"${initiallyChecked ? ' data-checked=""' : ' data-unchecked=""'}`;
+  if (name === 'Radio.Root' && !/\brole=/.test(result)) result += ` role="radio" aria-checked="${initiallyChecked}"${initiallyChecked ? ' data-checked=""' : ' data-unchecked=""'}`;
+  if (name === 'Toggle' && !/\baria-pressed=/.test(result)) result += ` aria-pressed="${initiallyPressed}"${initiallyPressed ? ' data-pressed=""' : ''}`;
+  if (name === 'Tabs.Tab' && !/\brole=/.test(result)) result += ' role="tab" aria-selected="false"';
+  return result;
+}
+
+function jsxPreview(source: string, cssModulePrefix = '', sourceMode = false) {
+  const sourceFile = ts.createSourceFile('demo.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  type DemoLiteral = string | number | boolean | Record<string, string | number | boolean>;
+  let returned: ts.Expression | undefined;
+  const localComponents = new Map<string, ts.Expression>();
+  const constants = new Map<string, string | number>();
+  const collectionSizes = new Map<string, number>();
+  const collectionValues = new Map<string, DemoLiteral[]>();
+  const bindings = new Map<string, DemoLiteral>();
+  const collectionStack: DemoLiteral[][] = [];
+
+  function literalValue(expression: ts.Expression): DemoLiteral | null {
+    if (ts.isStringLiteralLike(expression)) return expression.text;
+    if (ts.isNumericLiteral(expression)) return Number(expression.text);
+    if (expression.kind === ts.SyntaxKind.TrueKeyword) return true;
+    if (expression.kind === ts.SyntaxKind.FalseKeyword) return false;
+    if (ts.isObjectLiteralExpression(expression)) {
+      const result: Record<string, string | number | boolean> = {};
+      for (const property of expression.properties) {
+        if (!ts.isPropertyAssignment(property)) continue;
+        const value = literalValue(property.initializer);
+        if (value === null || typeof value === 'object') continue;
+        result[property.name.getText(sourceFile).replace(/^['"]|['"]$/g, '')] = value;
+      }
+      return result;
+    }
+    return null;
+  }
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
+        if (ts.isStringLiteralLike(declaration.initializer)) constants.set(declaration.name.text, declaration.initializer.text);
+        if (ts.isNumericLiteral(declaration.initializer)) constants.set(declaration.name.text, Number(declaration.initializer.text));
+        if (ts.isArrayLiteralExpression(declaration.initializer)) {
+          collectionSizes.set(declaration.name.text, declaration.initializer.elements.length);
+          const values = declaration.initializer.elements
+            .map((element) => ts.isExpression(element) ? literalValue(element) : null)
+            .filter((value): value is DemoLiteral => value !== null);
+          if (values.length === declaration.initializer.elements.length) collectionValues.set(declaration.name.text, values);
+        }
+      }
+    }
+    if (!ts.isFunctionDeclaration(statement) || !statement.body) continue;
+    const returnExpression = statement.body.statements.find(ts.isReturnStatement)?.expression;
+    if (!returnExpression) continue;
+    if (statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)) {
+      returned = returnExpression;
+    } else if (statement.name) {
+      localComponents.set(statement.name.text, returnExpression);
+    }
+  }
   if (!returned) return '';
 
-  let html = returned
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/className=\{styles\.([A-Za-z0-9_]+)\}/g, 'class="$1"')
-    .replace(/className="([^"]*)"/g, 'class="$1"')
-    .replace(/style=\{\{[\s\S]*?\}\}/g, '')
-    .replace(/\{\.\.\.[^}]+\}/g, '')
-    .replace(/\{(['"`])([\s\S]*?)\1\}/g, '$2')
-    .replace(/\{[^{}]*\}/g, '')
-    .replace(/<([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)?)([^>]*)\/>/g, (_match, name: string, attributes: string) => {
-      if (/Icon$/.test(name)) {
-        const sourceClass = attributes.match(/\bclass="([^"]+)"/)?.[1] ?? '';
-        return `<svg class="DemoIcon${sourceClass ? ` ${sourceClass}` : ''}" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path d="M1.5 8h13M8 14.5v-13" /></svg>`;
+  function expressionValue(expression: ts.Expression | undefined): string | null {
+    if (!expression) return '';
+    if (ts.isStringLiteralLike(expression) || ts.isNumericLiteral(expression)) return expression.text;
+    if (ts.isIdentifier(expression) && bindings.has(expression.text)) {
+      const value = bindings.get(expression.text);
+      return typeof value === 'object' ? null : String(value);
+    }
+    if (ts.isIdentifier(expression) && constants.has(expression.text)) return String(constants.get(expression.text));
+    if (expression.kind === ts.SyntaxKind.TrueKeyword) return '';
+    if (expression.kind === ts.SyntaxKind.FalseKeyword || expression.kind === ts.SyntaxKind.NullKeyword) return null;
+    if (ts.isPropertyAccessExpression(expression) && expression.expression.getText(sourceFile) === 'styles') {
+      return `${cssModulePrefix}${expression.name.text}`;
+    }
+    if (ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression)) {
+      const owner = bindings.get(expression.expression.text);
+      if (owner && typeof owner === 'object') {
+        const value = owner[expression.name.text];
+        if (value !== undefined) return String(value);
       }
-      const tag = demoTag(name);
-      return `<${tag}${attributes} data-demo-part="${name.split('.').at(-1)}"></${tag}>`;
-    })
-    .replace(/<\/?([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)?)([^>]*)>/g, (match, name: string, attributes: string) => {
-      const closing = match.startsWith('</');
-      const tag = demoTag(name);
-      if (closing) return `</${tag}>`;
-      const part = name.split('.').at(-1);
-      const hidden = /^(Panel|Popup|Positioner|Backdrop|Portal|Viewport|Content)$/.test(part ?? '') ? ' hidden' : '';
-      return `<${tag}${attributes} data-demo-part="${part}"${hidden}>`;
-    })
-    .replace(/\s(?:on[A-Z][A-Za-z]+|value|defaultValue|open|defaultOpen|checked|defaultChecked|items|itemToString|onOpenChange|onValueChange)=\{[^}]*\}/g, '')
-    .replace(/\s(?:key|ref)=\{[^}]*\}/g, '')
-    .replace(/<>|<\/\>/g, '')
-    .replace(/\n\s*\n/g, '\n')
-    .trim();
+    }
+    if (ts.isTemplateExpression(expression)) {
+      let result = expression.head.text;
+      for (const span of expression.templateSpans) {
+        const value = expressionValue(span.expression);
+        if (value === null) return null;
+        result += value + span.literal.text;
+      }
+      return result;
+    }
+    return null;
+  }
 
-  // React expressions that remain after the conservative pass are not valid HTML.
-  html = html.replace(/\{[\s\S]*?\}/g, '');
-  return html;
+  function renderAttributes(
+    attributes: ts.JsxAttributes,
+    componentName: string | null,
+  ) {
+    const result: string[] = [];
+    for (const property of attributes.properties) {
+      if (!ts.isJsxAttribute(property)) continue;
+      let attributeName = property.name.getText(sourceFile);
+      if (attributeName === 'className') attributeName = 'class';
+      if (attributeName === 'htmlFor') attributeName = 'for';
+      if (attributeName === 'tabIndex') attributeName = 'tabindex';
+      if (attributeName === 'strokeLinecap') attributeName = 'stroke-linecap';
+      if (attributeName === 'strokeLinejoin') attributeName = 'stroke-linejoin';
+      if (/^(on[A-Z]|style$|ref$|key$|render$)/.test(attributeName)) continue;
+      let value: string | null;
+      if (!property.initializer) value = '';
+      else if (ts.isStringLiteral(property.initializer)) value = property.initializer.text;
+      else if (ts.isJsxExpression(property.initializer)) value = expressionValue(property.initializer.expression);
+      else continue;
+      if (value === null) continue;
+      result.push(value === '' ? attributeName : `${attributeName}="${escapeHtml(value)}"`);
+    }
+    const joined = result.length ? ` ${result.join(' ')}` : '';
+    return componentName && !sourceMode ? demoElementAttributes(componentName, joined) : joined;
+  }
+
+  function renderExpression(expression: ts.Expression | undefined): string {
+    if (!expression) return '';
+    const value = expressionValue(expression);
+    if (value !== null) return escapeHtml(value);
+    if (ts.isParenthesizedExpression(expression)) return renderExpression(expression.expression);
+    if (ts.isJsxElement(expression) || ts.isJsxSelfClosingElement(expression) || ts.isJsxFragment(expression)) {
+      return renderNode(expression);
+    }
+    if (ts.isConditionalExpression(expression)) {
+      return renderExpression(expression.whenTrue) || renderExpression(expression.whenFalse);
+    }
+    if (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) {
+      const values = collectionStack.at(-1) ?? [''];
+      const callbackBody = ts.isBlock(expression.body)
+        ? expression.body.statements.find(ts.isReturnStatement)?.expression
+        : expression.body;
+      return values.map((item, index) => renderCallback(expression, callbackBody, item, index)).join('');
+    }
+    if (ts.isCallExpression(expression)) {
+      let count = 0;
+      let callback: ts.Expression | undefined;
+      let values: DemoLiteral[] = [];
+      if (ts.isPropertyAccessExpression(expression.expression) && expression.expression.name.text === 'map') {
+        const collection = expression.expression.expression;
+        if (ts.isIdentifier(collection)) {
+          count = collectionSizes.get(collection.text) ?? 1;
+          values = collectionValues.get(collection.text) ?? [];
+        } else if (ts.isArrayLiteralExpression(collection)) {
+          count = collection.elements.length;
+          values = collection.elements.map((item) => literalValue(item) ?? '');
+        }
+        callback = expression.arguments[0];
+      } else if (
+        ts.isPropertyAccessExpression(expression.expression)
+        && expression.expression.expression.getText(sourceFile) === 'Array'
+        && expression.expression.name.text === 'from'
+      ) {
+        const descriptor = expression.arguments[0];
+        if (descriptor && ts.isObjectLiteralExpression(descriptor)) {
+          const length = descriptor.properties.find((property): property is ts.PropertyAssignment =>
+            ts.isPropertyAssignment(property) && property.name.getText(sourceFile) === 'length');
+          const value = length ? expressionValue(length.initializer) : null;
+          count = value === null ? 0 : Number(value);
+        }
+        callback = expression.arguments[1];
+      }
+      if (count > 0 && callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
+        const callbackBody = ts.isBlock(callback.body)
+          ? callback.body.statements.find(ts.isReturnStatement)?.expression
+          : callback.body;
+        return Array.from({ length: count }, (_, index) =>
+          renderCallback(callback, callbackBody, values[index] ?? index, index)).join('');
+      }
+    }
+    return '';
+  }
+
+  function bindParameter(name: ts.BindingName, value: DemoLiteral) {
+    const names: string[] = [];
+    if (ts.isIdentifier(name)) {
+      bindings.set(name.text, value);
+      names.push(name.text);
+    } else if (ts.isObjectBindingPattern(name) && typeof value === 'object') {
+      for (const element of name.elements) {
+        if (!ts.isIdentifier(element.name)) continue;
+        const key = element.propertyName?.getText(sourceFile) ?? element.name.text;
+        const item = value[key];
+        if (item === undefined) continue;
+        bindings.set(element.name.text, item);
+        names.push(element.name.text);
+      }
+    }
+    return names;
+  }
+
+  function renderCallback(
+    callback: ts.ArrowFunction | ts.FunctionExpression,
+    body: ts.Expression | undefined,
+    item: DemoLiteral,
+    index: number,
+  ) {
+    const names = callback.parameters[0] ? bindParameter(callback.parameters[0].name, item) : [];
+    if (callback.parameters[1]) names.push(...bindParameter(callback.parameters[1].name, index));
+    const result = renderExpression(body);
+    for (const name of names) bindings.delete(name);
+    return result;
+  }
+
+  function renderChildren(children: ts.NodeArray<ts.JsxChild>) {
+    return children.map((child) => {
+      if (ts.isJsxText(child)) return escapeHtml(child.getFullText(sourceFile));
+      if (ts.isJsxExpression(child)) return renderExpression(child.expression);
+      return renderNode(child);
+    }).join('');
+  }
+
+  function icon(name: string, attributes: ts.JsxAttributes) {
+    const className = attributes.properties
+      .filter(ts.isJsxAttribute)
+      .find((attribute) => attribute.name.getText(sourceFile) === 'className');
+    const value = className?.initializer && ts.isJsxExpression(className.initializer)
+      ? expressionValue(className.initializer.expression)
+      : className?.initializer && ts.isStringLiteral(className.initializer)
+        ? className.initializer.text
+        : null;
+    const helper = localComponents.get(name);
+    const rendered = helper ? renderExpression(helper) : '';
+    if (rendered.startsWith('<svg')) {
+      return rendered.replace('<svg', `<svg class="DemoIcon${value ? ` ${escapeHtml(value)}` : ''}" aria-hidden="true"`);
+    }
+    return `<svg class="DemoIcon${value ? ` ${escapeHtml(value)}` : ''}" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round"><path d="M1.5 8h13M8 14.5v-13" /></svg>`;
+  }
+
+  function renderNode(node: ts.JsxChild | ts.Expression): string {
+    if (ts.isJsxFragment(node)) return renderChildren(node.children);
+    if (ts.isJsxElement(node)) {
+      const sourceName = node.openingElement.tagName.getText(sourceFile);
+      if (sourceName === 'React.Fragment') return renderChildren(node.children);
+      const local = !sourceName.includes('.') ? localComponents.get(sourceName) : undefined;
+      if (local) return renderExpression(local);
+      const componentName = /^[A-Z]/.test(sourceName) ? sourceName : null;
+      const tag = componentName && !sourceMode ? demoTag(sourceName) : sourceName;
+      const part = componentName ? sourceName.split('.').at(-1) : null;
+      const hidden = !sourceMode && part && /^(Panel|Popup|Positioner|Backdrop|Portal|Viewport|Content|Error|ScrubAreaCursor)$/.test(part) ? ' hidden' : '';
+      const itemsAttribute = node.openingElement.attributes.properties
+        .filter(ts.isJsxAttribute)
+        .find((attribute) => attribute.name.getText(sourceFile) === 'items');
+      const itemsExpression = itemsAttribute?.initializer && ts.isJsxExpression(itemsAttribute.initializer)
+        ? itemsAttribute.initializer.expression
+        : undefined;
+      const collection = itemsExpression && ts.isIdentifier(itemsExpression)
+        ? collectionValues.get(itemsExpression.text)
+        : undefined;
+      if (collection) collectionStack.push(collection);
+      const children = renderChildren(node.children);
+      if (collection) collectionStack.pop();
+      const attributes = renderAttributes(node.openingElement.attributes, componentName);
+      const accessibleName = !sourceMode && tag === 'button' && !/\baria-label=/.test(attributes) && !plainText(children)
+        ? ' aria-label="Open menu"'
+        : '';
+      return `<${tag}${attributes}${accessibleName}${componentName && !sourceMode ? ` data-demo-component="${componentName}"` : ''}${part && !sourceMode ? ` data-demo-part="${part}"` : ''}${hidden}>${children}</${tag}>`;
+    }
+    if (ts.isJsxSelfClosingElement(node)) {
+      const sourceName = node.tagName.getText(sourceFile);
+      if (sourceName === 'React.Fragment') return '';
+      if (/Icon$/.test(sourceName)) return icon(sourceName, node.attributes);
+      const local = !sourceName.includes('.') ? localComponents.get(sourceName) : undefined;
+      if (local) return renderExpression(local);
+      const componentName = /^[A-Z]/.test(sourceName) ? sourceName : null;
+      const tag = componentName && !sourceMode ? demoTag(sourceName) : sourceName;
+      const part = componentName ? sourceName.split('.').at(-1) : null;
+      const attributes = renderAttributes(node.attributes, componentName);
+      if (sourceMode) return `<${tag}${attributes} />`;
+      if (/^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/.test(tag)) {
+        return `<${tag}${attributes}${componentName ? ` data-demo-component="${componentName}"` : ''}${part ? ` data-demo-part="${part}"` : ''}>`;
+      }
+      const placeholder = part === 'Value'
+        ? node.attributes.properties
+            .filter(ts.isJsxAttribute)
+            .find((attribute) => attribute.name.getText(sourceFile) === 'placeholder')
+        : undefined;
+      const placeholderText = placeholder?.initializer && ts.isStringLiteral(placeholder.initializer)
+        ? escapeHtml(placeholder.initializer.text)
+        : '';
+      const hidden = part && /^(Panel|Popup|Positioner|Backdrop|Portal|Viewport|Content|Error|ScrubAreaCursor)$/.test(part) ? ' hidden' : '';
+      return `<${tag}${attributes}${componentName ? ` data-demo-component="${componentName}"` : ''}${part ? ` data-demo-part="${part}"` : ''}${hidden}>${placeholderText}</${tag}>`;
+    }
+    if (ts.isJsxExpression(node)) return renderExpression(node.expression);
+    if (ts.isJsxText(node)) return escapeHtml(node.getFullText(sourceFile));
+    return '';
+  }
+
+  return renderExpression(returned).replace(/\n\s*\n/g, '\n').trim();
 }
 
 function translateDemoSource(source: string) {
@@ -243,17 +529,34 @@ function translateDemoSource(source: string) {
     .filter((value, index, values) => values.indexOf(value) === index)
     .join('\n');
 
-  return imports
-    .concat(imports && body ? '\n\n' : '', body)
+  const script = imports ? `<script lang="ts">\n${imports}\n</script>` : '';
+  const translated = script
+    .concat(script && body ? '\n\n' : '', body)
     .replaceAll('className=', 'class=')
     .replace(/\{styles\.([A-Za-z0-9_]+)\}/g, '"$1"')
+    .replace(/<PlusIcon\s+class="([^"]+)"\s*\/>/g, '<svg class="$1" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8h13M8 14.5v-13" /></svg>')
     .replaceAll('React components', 'Svelte components')
     .replace(/^\s*import \* as React from 'react';\s*$/gm, '')
-    .replaceAll('<React.Fragment>', '<svelte:fragment>')
-    .replaceAll('</React.Fragment>', '</svelte:fragment>')
+    .replace(/<React\.Fragment(?:\s+[^>]*)?>/g, '')
+    .replaceAll('</React.Fragment>', '')
+    .replaceAll(' as React.CSSProperties', '')
     .replaceAll('"/react/', '"/svelte/')
     .replaceAll("'/react/", "'/svelte/")
     .replace(/\/>/g, ' />');
+
+  try {
+    compileSvelte(translated, { generate: false });
+    return translated;
+  } catch {
+    // React callback children and JSX-valued render props do not have a safe
+    // mechanical Svelte equivalent. Render the same component tree as valid,
+    // static Svelte instead of publishing broken pseudo-Svelte/TSX.
+    const staticBody = jsxPreview(source, '', true)
+      .replace(/\n[ \t]+/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    return script.concat(script && staticBody ? '\n\n' : '', staticBody);
+  }
 }
 
 async function fetchText(fetcher: typeof fetch, url: string) {
@@ -261,42 +564,110 @@ async function fetchText(fetcher: typeof fetch, url: string) {
   return response.ok ? response.text() : '';
 }
 
-async function renderDemo(fetcher: typeof fetch, pagePath: string, importPath: string, name: string) {
-  const demoPath = importPath.replace(/^\.\//, '');
-  const baseUrl = `${DOCS_SOURCE_ROOT}/${pagePath}/${demoPath}`;
-  let sourceUrl = `${baseUrl}/css-modules/index.tsx`;
-  let source = await fetchText(fetcher, sourceUrl);
-  let variant = 'CSS Modules';
-  if (!source) {
-    sourceUrl = `${baseUrl}/tailwind/index.tsx`;
-    source = await fetchText(fetcher, sourceUrl);
-    variant = 'Tailwind';
-  }
-  if (!source) return '';
+const copyIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="square" d="M1.5 1.5h10v10h-10z"/><path stroke-linecap="square" d="M4.5 11.5h-3v-10h10v3"/><path d="M12 4.5h2.5v10h-10V12"/></svg>';
+const externalLinkIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="square" stroke-linejoin="round" d="m4 12 8-8"/><path d="M5 3.5h7.5V11"/></svg>';
+const moreIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.5 13c0 .8284-.67157 1.5-1.5 1.5s-1.5-.6716-1.5-1.5.67157-1.5 1.5-1.5 1.5.6716 1.5 1.5m0-5c0 .82843-.67157 1.5-1.5 1.5S6.5 8.82843 6.5 8 7.17157 6.5 8 6.5s1.5.67157 1.5 1.5m0-5c0 .82843-.67157 1.5-1.5 1.5S6.5 3.82843 6.5 3 7.17157 1.5 8 1.5s1.5.67157 1.5 1.5"/></svg>';
+const selectIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11 10H5l3 3.5zm0-4H5l3-3.5z"/></svg>';
+
+interface DemoVariant {
+  id: string;
+  label: string;
+  collapsible: boolean;
+  preview: string;
+  scopedCss: string;
+  files: Array<{ name: string; language: string; code: string; highlighted: string }>;
+}
+
+async function loadDemoVariant(
+  fetcher: typeof fetch,
+  baseUrl: string,
+  demoName: string,
+  id: string,
+  label: string,
+): Promise<DemoVariant | null> {
+  const sourceUrl = `${baseUrl}/${id}/index.tsx`;
+  const source = await fetchText(fetcher, sourceUrl);
+  if (!source) return null;
 
   const cssImport = source.match(/import styles from '([^']+)'/)?.[1];
   let css = '';
-  if (cssImport) {
-    const cssUrl = new URL(cssImport, sourceUrl).href;
-    css = await fetchText(fetcher, cssUrl);
+  if (cssImport) css = await fetchText(fetcher, new URL(cssImport, sourceUrl).href);
+  const displayCss = css;
+  const cssModulePrefix = cssImport ? `${demoName}__` : '';
+  const cssModuleClasses = [...source.matchAll(/styles\.([A-Za-z_][A-Za-z0-9_]*)/g)]
+    .map((match) => match[1])
+    .filter((className, index, classes) => classes.indexOf(className) === index);
+  for (const className of cssModuleClasses) {
+    css = css.replace(new RegExp(`\\.${className}\\b`, 'g'), `.${cssModulePrefix}${className}`);
   }
-  css = css.replace(/(^|\n)(\s*)(\.[A-Za-z_][A-Za-z0-9_-]*)/g, `$1$2[data-demo="${name}"] $3`);
-
-  const preview = jsxPreview(
-    source
-      .replaceAll('React components', 'Svelte components')
-      .replaceAll('"/react/', '"/svelte/')
-      .replaceAll("'/react/", "'/svelte/"),
+  const scopedCss = css.replace(
+    /(^|\n)(\s*)(\.[A-Za-z_][A-Za-z0-9_-]*)/g,
+    `$1$2[data-demo="${demoName}"] $3`,
   );
   const translated = translateDemoSource(source);
-  const highlighted = await highlightCode(translated, 'svelte');
-  const html = `<div class="DemoRoot" data-demo="${name}">
-<style>${css}</style>
-<div class="DemoPreview">${preview}</div>
-<div class="DemoToolbar"><span>index.svelte</span>${css ? '<span>index.css</span>' : ''}<span class="DemoToolbarSpacer"></span><span>${variant}</span><span>StackBlitz ↗</span><span aria-hidden="true">⋮</span></div>
-<pre class="DemoCode"><code class="language-svelte">${highlighted}</code></pre>
-<button class="DemoShowCode" type="button">Show code</button>
-</div>`;
+  const files = [{
+    name: 'index.svelte',
+    language: 'svelte',
+    code: translated,
+    highlighted: await highlightCode(translated, 'svelte'),
+  }];
+  if (displayCss) {
+    files.push({
+      name: 'index.module.css',
+      language: 'css',
+      code: displayCss,
+      highlighted: await highlightCode(displayCss, 'css'),
+    });
+  }
+
+  return {
+    id,
+    label,
+    collapsible: source.trimEnd().split('\n').length >= 8,
+    scopedCss,
+    preview: jsxPreview(
+      source
+        .replaceAll('React components', 'Svelte components')
+        .replaceAll('"/react/', '"/svelte/')
+        .replaceAll("'/react/", "'/svelte/"),
+      cssModulePrefix,
+    ),
+    files,
+  };
+}
+
+function demoToolbarActions(variants: DemoVariant[], selected: DemoVariant, sourceUrl: string) {
+  const variantSelector = variants.length > 1
+    ? `<div class="DemoVariantSelector"><button class="GhostButton" type="button" role="combobox" aria-label="Styling method" aria-haspopup="listbox" aria-expanded="false" data-demo-action="variant"><span>${selected.label}</span>${selectIcon}</button><div class="DemoVariantPopup" role="listbox" aria-label="Styling method" hidden>${variants.map((variant) => `<button type="button" role="option" aria-selected="${variant === selected}" data-demo-variant-option="${variant.id}">${variant.label}</button>`).join('')}</div></div>`
+    : '';
+  return `${variantSelector}<button class="GhostButton" type="button" aria-label="Open in StackBlitz" data-demo-action="stackblitz">StackBlitz${externalLinkIcon}</button><div class="DemoMore"><button class="GhostButton" data-layout="icon" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" data-demo-action="more">${moreIcon}</button><div class="DemoMorePopup" role="menu" hidden><a role="menuitem" href="${sourceUrl}" target="_blank" rel="noopener">View source on GitHub${externalLinkIcon}</a><button type="button" role="menuitem" data-demo-action="copy-source">${copyIcon}Copy link to source</button></div></div>`;
+}
+
+async function renderDemo(fetcher: typeof fetch, pagePath: string, importPath: string, name: string) {
+  const demoPath = importPath.replace(/^\.\//, '');
+  const baseUrl = `${DOCS_SOURCE_ROOT}/${pagePath}/${demoPath}`;
+  const variants = (await Promise.all([
+    loadDemoVariant(fetcher, baseUrl, name, 'css-modules', 'CSS Modules'),
+    loadDemoVariant(fetcher, baseUrl, name, 'tailwind', 'Tailwind v4'),
+  ])).filter((variant): variant is DemoVariant => variant !== null);
+  if (!variants.length) return '';
+
+  const selected = variants[0];
+  const visualVariant = variants.find((variant) => variant.id === 'css-modules') ?? selected;
+  const sourceUrl = `https://github.com/itisyb/baseui-svelte/tree/main/src/lib/${pagePath.split('/').at(-1)}`;
+  // The styling-method switch changes the source files. The rendered example
+  // stays visually identical, as it does upstream; CSS Modules provides the
+  // deterministic preview while Tailwind source is still shown verbatim.
+  const previews = variants.map((variant) => `<div class="DemoVariantPreview" data-demo-variant="${variant.id}"${variant === selected ? '' : ' hidden'}><style>${visualVariant.scopedCss}</style><div class="DemoPreview">${visualVariant.preview}</div></div>`).join('');
+  const tabLists = variants.map((variant) => `<div class="DemoTabsRoot" data-demo-variant-tabs="${variant.id}"${variant === selected ? '' : ' hidden'}><div class="DemoTabsList" role="tablist" aria-label="Files">${variant.files.map((file, index) => `<a class="DemoTab" id="${slug(name)}:${variant.id}:${file.name}:tab" href="#${slug(name)}:${variant.id}:${file.name}" role="tab" aria-controls="${slug(name)}:${variant.id}:${file.name}" aria-selected="${index === 0}" tabindex="${index === 0 ? '0' : '-1'}" data-demo-file="${file.name}"${index === 0 ? ' data-active=""' : ''}><span>${file.name}</span></a>`).join('')}</div></div>`).join('');
+  const codePanels = variants.flatMap((variant) => variant.files.map((file, index) => `<pre class="DemoCode" id="${slug(name)}:${variant.id}:${file.name}" role="tabpanel" aria-labelledby="${slug(name)}:${variant.id}:${file.name}:tab" data-demo-code-variant="${variant.id}" data-demo-code-file="${file.name}"${variant === selected && index === 0 ? '' : ' hidden'}><code class="language-${file.language}">${file.highlighted}</code></pre>`)).join('');
+  const actions = demoToolbarActions(variants, selected, sourceUrl);
+  const html = `<div class="DemoRoot" data-demo="${name}" data-selected-variant="${selected.id}" data-source-url="${sourceUrl}"${selected.collapsible ? ' data-demo-collapsible=""' : ''}>
+${previews}
+<div class="DemoCollapsibleRoot" role="figure" aria-label="Component demo code">
+<div class="DemoToolbar"><div class="DemoToolbarScrollAreaRoot"><div class="DemoToolbarViewport">${tabLists}<div class="DemoToolbarActions DemoToolbarActionsMobile">${actions}</div></div></div><div class="DemoToolbarActions DemoToolbarActionsDesktop">${actions}</div></div>
+<div class="DemoCodeBlockRoot">${codePanels}<button class="GhostButton DemoCodeBlockCopyButton" data-layout="icon" type="button" aria-label="Copy code">${copyIcon}</button><button class="DemoShowCode" type="button"><span class="DemoCollapseButtonVisual">Show code</span></button></div>
+</div></div>`;
   return `\n<!--DEMO:${encodeURIComponent(html)}-->\n`;
 }
 
@@ -422,6 +793,8 @@ function translateSvelte(markdown: string, pagePath: string) {
     .replace(/```(?:jsx|tsx)/g, '```svelte')
     .replaceAll('.tsx', '.svelte')
     .replaceAll('.jsx', '.svelte')
+    .replaceAll('{/* prettier-ignore */}', '<!-- prettier-ignore -->')
+    .replaceAll('{children}', '{@render children()}')
     .replace(/import \{ ([A-Za-z0-9]+) \} from '@itisyb\/baseui-svelte\/([^']+)';/g, "import * as $1 from '@itisyb/baseui-svelte/$2';")
     .replaceAll('className', 'class')
     .replaceAll('React.CSSProperties', 'string')
@@ -527,7 +900,7 @@ function referenceDataTable(table: string, label: string) {
   const rows = [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => tableCells(match[1]));
   const firstHeader = headers[0] ?? (label.includes('CSS') ? 'CSS Variable' : 'Attribute');
   const renderedRows = rows.map(([name = '', _type = '', description = '']) =>
-    `<tr class="TableRow"><th class="TableCell" scope="row"><div class="TableCellInner ReferenceWideNameColumn">${name}</div></th><td class="TableCell" colspan="2"><div class="TableCellInner">${description}</div></td></tr>`,
+    `<tr class="TableRow"><th class="TableCell" scope="row"><div class="TableCellInner"><code class="Code TableCode">${name}</code></div></th><td class="TableCell" colspan="2"><div class="TableCellInner"><p class="MdP">${description}</p></div></td></tr>`,
   ).join('');
   return `<div class="TableRoot ReferenceTableRoot ReferenceBlockSpaced" style="--rows:${rows.length}"><table class="TableRootTable" aria-label="${escapeHtml(label)}"><thead class="TableHead"><tr class="TableRow"><th class="TableColumnHeader ReferenceWideNameColumn" scope="col"><div class="TableCellInner">${firstHeader}</div></th><th class="TableColumnHeader ReferenceWideDescriptionColumn" scope="col"><div class="TableCellInner">Description</div></th><th class="TableColumnHeader ReferenceHeaderIconCell" aria-hidden="true"><span class="VisuallyHidden">-</span></th></tr></thead><tbody class="TableBody">${renderedRows}</tbody></table></div>`;
 }

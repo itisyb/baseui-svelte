@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+const componentSlugs = [
+  'accordion', 'alert-dialog', 'autocomplete', 'avatar', 'button', 'checkbox',
+  'checkbox-group', 'collapsible', 'combobox', 'context-menu', 'dialog', 'drawer',
+  'field', 'fieldset', 'form', 'input', 'menu', 'menubar', 'meter', 'navigation-menu',
+  'number-field', 'otp-field', 'popover', 'preview-card', 'progress', 'radio',
+  'scroll-area', 'select', 'separator', 'slider', 'switch', 'tabs', 'toast', 'toggle',
+  'toggle-group', 'toolbar', 'tooltip',
+] as const;
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/svelte/components');
   await page.evaluate(() => document.fonts.ready);
@@ -31,6 +40,7 @@ test('uses the exact component index text', async ({ page }) => {
 });
 
 test('keeps every documentation destination local', async ({ page, request }, testInfo) => {
+  test.setTimeout(90_000);
   test.skip(testInfo.project.name.startsWith('mobile'));
   const links = await page.locator('a').evaluateAll((anchors) =>
     anchors.map((anchor) => (anchor as HTMLAnchorElement).getAttribute('href')).filter(Boolean),
@@ -70,6 +80,10 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
 
   await expect(page.locator('a[href^="https://base-ui.com/react"]')).toHaveCount(0);
   await expect(page.locator('.MdContent table').first()).toBeVisible();
+  const attributesTable = page.locator('.MdContent table').first();
+  await attributesTable.scrollIntoViewIfNeeded();
+  await expect.poll(async () => attributesTable.locator('thead th').first().boundingBox()).toMatchObject({ width: 219.984375 });
+  await expect(attributesTable.locator('tbody th').first()).toContainText('data-orientation');
 
   const markdown = await request.get('/svelte/components/accordion.md');
   expect(markdown.status()).toBe(200);
@@ -78,6 +92,12 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
 
   const firstTrigger = page.locator('.DemoPreview [data-demo-part="Trigger"]').first();
   const firstPanel = page.locator('.DemoPreview [data-demo-part="Panel"]').first();
+  const secondTrigger = page.locator('.DemoPreview [data-demo-part="Trigger"]').nth(1);
+  const secondPanel = page.locator('.DemoPreview [data-demo-part="Panel"]').nth(1);
+  const demo = page.locator('.DemoRoot').first();
+  await expect(demo.locator('.DemoVariantPreview:not([hidden]) [data-demo-part="Trigger"] .DemoIcon')).toHaveCount(3);
+  await expect(firstTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
   await expect(firstPanel).toBeHidden();
   const animationHeights = await page.evaluate(async () => {
     const trigger = document.querySelector<HTMLElement>('.DemoPreview [data-demo-part="Trigger"]')!;
@@ -96,6 +116,27 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
   await expect(firstTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(firstPanel).toHaveCSS('transition-duration', '0.15s');
 
+  await secondTrigger.click();
+  await expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(secondPanel).toBeVisible();
+  await expect(firstTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(firstPanel).toBeHidden();
+
+  const fileTabs = demo.getByRole('tab');
+  await expect(fileTabs).toHaveCount(2);
+  await expect(fileTabs.nth(0)).toHaveText('index.svelte');
+  await expect(fileTabs.nth(0)).toHaveAttribute('aria-selected', 'true');
+  await expect(fileTabs.nth(1)).toHaveText('index.module.css');
+  await expect(demo.getByRole('combobox', { name: 'Styling method' })).toBeVisible();
+  await expect(demo.getByRole('button', { name: 'Open in StackBlitz' })).toBeVisible();
+  await expect(demo.getByRole('button', { name: 'More actions' })).toBeVisible();
+  await expect(demo.getByRole('button', { name: 'Copy code' })).toBeVisible();
+  await expect(demo.locator('.DemoCode [style*="--shiki-light"]')).not.toHaveCount(0);
+
+  await fileTabs.nth(1).click();
+  await expect(fileTabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await expect(demo.locator('.DemoCode:not([hidden])')).toContainText('.Accordion');
+
   const reference = page.locator('.ReferenceAccordionRoot').first();
   await expect(reference).toBeVisible();
   await expect.poll(async () => reference.boundingBox()).toMatchObject({ width: 768, height: 534 });
@@ -107,6 +148,30 @@ test('matches the upstream component-detail geometry and behavior', async ({ pag
     caret: 'hide',
     maxDiffPixels: 0,
   });
+});
+
+test('matches the Select popup geometry and selection behavior', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'));
+  await page.goto('/svelte/components/select');
+  await page.evaluate(() => document.fonts.ready);
+
+  const preview = page.locator('.DemoVariantPreview:not([hidden]) .DemoPreview').first();
+  const trigger = preview.locator('[data-demo-part="Trigger"]').first();
+  await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+  const popup = preview.locator('[data-demo-part="Popup"]').first();
+  const list = popup.locator('[data-demo-part="List"]');
+  await expect.poll(async () => popup.boundingBox()).toMatchObject({ x: 614, y: 270.203125, width: 188, height: 170 });
+  await expect.poll(async () => list.boundingBox()).toMatchObject({ x: 615, y: 271.203125, width: 186, height: 168 });
+  await expect(list.locator('[data-demo-part="Item"]')).toHaveText([
+    'Gala', 'Fuji', 'Honeycrisp', 'Granny Smith', 'Pink Lady',
+  ]);
+
+  await list.locator('[data-demo-part="Item"]').nth(1).click();
+  await expect(trigger.locator('[data-demo-part="Value"]')).toHaveText('Fuji');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(popup).toBeHidden();
 });
 
 test('renders Quick start without MDX or TSX artifacts', async ({ page }, testInfo) => {
@@ -132,6 +197,33 @@ test('renders Quick start without MDX or TSX artifacts', async ({ page }, testIn
 
   await installation.getByRole('tab', { name: 'pnpm', exact: true }).click();
   await expect(installation).toContainText('pnpm add @itisyb/baseui-svelte');
+});
+
+test('keeps every component demo shell structurally complete', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  test.skip(testInfo.project.name.startsWith('mobile'));
+
+  for (const component of componentSlugs) {
+    const response = await page.goto(`/svelte/components/${component}`);
+    expect(response?.status(), component).toBe(200);
+    const audit = await page.evaluate(() => {
+      const demos = [...document.querySelectorAll<HTMLElement>('.DemoRoot')];
+      return {
+        demos: demos.length,
+        toolbars: demos.filter((demo) => demo.querySelector('.DemoToolbar')).length,
+        highlighted: demos.filter((demo) => demo.querySelector('[style*="--shiki-light"]')).length,
+        reactArtifacts: demos.filter((demo) => /React\.|from ['"]react['"]|className=/.test(demo.querySelector('.DemoCode')?.textContent ?? '')).length,
+        erasedIcons: [...document.querySelectorAll<SVGPathElement>('.DemoPreview svg path')].filter((path) => getComputedStyle(path).d === 'none').length,
+        unnamedButtons: [...document.querySelectorAll<HTMLButtonElement>('.DemoPreview button')].filter((button) => !button.textContent?.trim() && !button.getAttribute('aria-label') && !button.closest('label')?.textContent?.trim()).length,
+      };
+    });
+    expect(audit.demos, `${component}: demos`).toBeGreaterThan(0);
+    expect(audit.toolbars, `${component}: toolbars`).toBe(audit.demos);
+    expect(audit.highlighted, `${component}: Shiki output`).toBe(audit.demos);
+    expect(audit.reactArtifacts, `${component}: React artifacts`).toBe(0);
+    expect(audit.erasedIcons, `${component}: erased SVG paths`).toBe(0);
+    expect(audit.unnamedButtons, `${component}: unnamed buttons`).toBe(0);
+  }
 });
 
 test('opens and filters the exact Search or Navigation surface', async ({ page }, testInfo) => {
